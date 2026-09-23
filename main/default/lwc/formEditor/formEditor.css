@@ -1,0 +1,154 @@
+:host {
+    --formeditor-radius-pill: 9999px;
+}
+
+/* ===== Container & Layout ===== */
+.sidebar-fields {
+    display: flex;
+    flex-direction: column;
+}
+
+.fields-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--slds-g-color-surface-1, #ffffff);
+    border-radius: var(--slds-g-radius-border-2, 0.25rem);
+    box-shadow: var(--slds-g-shadow-3, 0 2px 4px 0 #00000027);
+    overflow: hidden;
+}
+
+/* ===== Header ===== */
+.fields-header {
+    background: linear-gradient(
+        135deg,
+        var(--slds-g-color-brand-base-50, #0176d3),
+        var(--slds-g-color-brand-base-60, #014486)
+    );
+    padding: var(--slds-g-spacing-5, 1.5rem)
+        var(--slds-g-spacing-6, 2rem);
+    color: var(--slds-g-color-on-accent-1, #ffffff);
+}
+
+.fields-title {
+    font-weight: var(--slds-g-font-weight-7, 700);
+    margin-bottom: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.fields-subtitle {
+    font-size: var(--slds-g-font-scale-1, 0.875rem);
+    color: var(--slds-g-color-on-accent-1, #ffffff);
+}
+
+/* ===== Top Actions ===== */
+.top-actions {
+    padding: var(--slds-g-spacing-4, 1rem)
+        var(--slds-g-spacing-6, 2rem);
+    background: var(--slds-g-color-surface-container-1, #ffffff);
+    border-bottom: var(--slds-g-sizing-border-1, 1px) solid
+        var(--slds-g-color-border-1, #e5e5e5);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--slds-g-spacing-3, 0.75rem);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.primary-button {
+    font-weight: var(--slds-g-font-weight-6, 600);
+    border-radius: var(--slds-g-radius-border-2, 0.25rem);
+    background: linear-gradient(
+        135deg,
+        var(--slds-g-color-brand-base-50, #0176d3),
+        var(--slds-g-color-brand-base-60, #014486)
+    );
+    color: var(--slds-g-color-on-accent-1, #ffffff);
+    border: none;
+}
+
+.primary-button:hover {
+    box-shadow: var(--slds-g-shadow-4, 0 2px 5px 0 #00000027);
+}
+
+.secondary-actions {
+    display: flex;
+    gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+/* ===== Search ===== */
+.input-group {
+    padding: var(--slds-g-spacing-4, 1rem)
+        var(--slds-g-spacing-6, 2rem);
+    background: var(--slds-g-color-surface-container-1, #ffffff);
+    border-bottom: var(--slds-g-sizing-border-1, 1px) solid
+        var(--slds-g-color-border-1, #e5e5e5);
+}
+
+/* ===== Fields List ===== */
+.fields-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--slds-g-spacing-4, 1rem)
+        var(--slds-g-spacing-6, 2rem);
+    min-height: 0;
+}
+
+/* ===== Field Item ===== */
+.field-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--slds-g-spacing-3, 0.75rem);
+    margin-bottom: var(--slds-g-spacing-3, 0.75rem);
+    background: var(--slds-g-color-surface-1, #ffffff);
+    border: var(--slds-g-sizing-border-1, 1px) solid
+        var(--slds-g-color-border-1, #e5e5e5);
+    border-radius: var(--slds-g-radius-border-2, 0.25rem);
+}
+
+.field-item:hover {
+    box-shadow: var(--slds-g-shadow-2, 0 2px 3px 0 #00000027);
+}
+
+.field-type-badge {
+    padding: var(--slds-g-spacing-1, 0.25rem)
+        var(--slds-g-spacing-3, 0.75rem);
+    background: var(--slds-g-color-brand-base-50, #0176d3);
+    color: var(--slds-g-color-on-accent-1, #ffffff);
+    font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+    font-weight: var(--slds-g-font-weight-6, 600);
+    border-radius: var(--formeditor-radius-pill);
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--slds-g-spacing-12, 5rem);
+    color: var(--slds-g-color-neutral-base-50, #747474);
+    text-align: center;
+}
+
+.empty-message {
+    font-size: var(--slds-g-font-scale-2, 1rem);
+    margin-top: var(--slds-g-spacing-3, 0.75rem);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 64rem) {
+    .top-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .secondary-actions {
+        justify-content: center;
+    }
+
+    .fields-list {
+        padding: var(--slds-g-spacing-3, 0.75rem)
+            var(--slds-g-spacing-4, 1rem);
+    }
+}

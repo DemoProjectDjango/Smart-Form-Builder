@@ -1,0 +1,191 @@
+<template>
+    <div class="preview-container">
+        <div class="preview-form-card">
+
+            <h3 class="preview-title">{formName} Preview</h3>
+
+            <template if:true={hasFields}>
+                <div class="preview-fields-list">
+                    <template for:each={selectedFields} for:item="field">
+                        <div
+                            key={field.apiName}
+                            class={field.rowClass}
+                            data-api-name={field.apiName}
+                        >
+                            <!-- Header -->
+                            <div class="preview-field-header">
+                                <label class="preview-field-label">
+                                    {field.label}
+                                    <template if:true={field.required}>
+                                        <span class="required-indicator">*</span>
+                                    </template>
+                                </label>
+
+                                <div class="preview-order-actions">
+                                    <lightning-button-icon
+                                        icon-name="utility:chevronup"
+                                        variant="bare"
+                                        title="Move up"
+                                        data-api-name={field.apiName}
+                                        onclick={moveUp}
+                                        disabled={field.disableUp}
+                                    ></lightning-button-icon>
+
+                                    <lightning-button-icon
+                                        icon-name="utility:chevrondown"
+                                        variant="bare"
+                                        title="Move down"
+                                        data-api-name={field.apiName}
+                                        onclick={moveDown}
+                                        disabled={field.disableDown}
+                                    ></lightning-button-icon>
+
+                                    <lightning-button-icon
+                                        icon-name="utility:edit"
+                                        variant="bare"
+                                        title="Edit field"
+                                        data-api-name={field.apiName}
+                                        class="preview-edit-btn"
+                                        onclick={handleEditField}
+                                    ></lightning-button-icon>
+
+                                    <lightning-button-icon
+                                        icon-name="utility:delete"
+                                        variant="bare"
+                                        title="Delete field"
+                                        data-api-name={field.apiName}
+                                        onclick={handleDeleteField}
+                                    ></lightning-button-icon>
+                                </div>
+                            </div>
+
+                            <!-- Field preview -->
+                            <template if:true={field.isInput}>
+                                <input type={field.inputType} placeholder={field.placeholder} disabled />
+                            </template>
+                            <template if:true={field.isTextarea}>
+                                <textarea placeholder={field.placeholder} disabled></textarea>
+                            </template>
+                            <template if:true={field.isSelect}>
+                                <select disabled multiple={field.isMulti}>
+                                    <template for:each={field.picklistValues} for:item="opt">
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    </template>
+                                </select>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="preview-footer">
+                    <button class="preview-submit-btn" onclick={applyPreviewChanges}>Apply Changes</button>
+                </div>
+            </template>
+
+            <template if:false={hasFields}>
+                <div class="empty-preview-state"><p>No fields selected yet</p></div>
+            </template>
+        </div>
+
+        <!-- ==================== UPDATED MODAL ==================== -->
+        <template if:true={isModalOpen}>
+            <div class="modal" onclick={closeModal}>
+                <div class="modal-content" onclick={stopBubble}>
+                    <span class="close-btn" onclick={closeModal}>&times;</span>
+                    <h2>Edit Field</h2>
+
+                    <label>Field Label</label>
+                    <input type="text" value={fieldBeingEdited.label} onchange={handleFieldNameChange} />
+
+                    <label>Placeholder Text</label>
+                    <input type="text" value={fieldBeingEdited.placeholder} oninput={handlePlaceholderChange} />
+
+
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input 
+                                type="checkbox" 
+                                id="requiredCheckbox" 
+                                checked={fieldBeingEdited.required}
+                                onchange={handleRequiredChange}
+                            />
+                            <label for="requiredCheckbox" class="checkbox-label">Make this field required</label>
+                        </div>
+
+                        <!-- Renamed & repurposed checkbox -->
+                        <div class="checkbox-item">
+                            <input 
+                                type="checkbox" 
+                                id="dependentCheckbox" 
+                                checked={fieldBeingEdited.isDependent}
+                                onchange={handleDependentChange}
+                            />
+                            <label for="dependentCheckbox" class="checkbox-label">
+                                Make this field dependent (visible only for specific picklist values)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Dependency configuration (shown only when dependent) -->
+                    <template if:true={fieldBeingEdited.isDependent}>
+                        <div class="dependency-section">
+                            <label>Controlling Field</label>
+                            <lightning-combobox
+                                placeholder="Choose a single-select picklist field"
+                                value={fieldBeingEdited.dependency.controllingApi}
+                                options={controllingFieldOptions}
+                                onchange={handleControllingFieldChange}
+                            ></lightning-combobox>
+
+                            <template if:true={selectedControllingValues.length}>
+                                <div class="slds-m-top_medium">
+                                    <p class="slds-text-body_regular">
+                                        Show this field when the controlling field has <strong>any</strong> of these values:
+                                    </p>
+                                    <div class="values-checkboxes slds-m-top_small">
+                                        <template for:each={selectedControllingValues} for:item="pv">
+                                            <div key={pv.value} class="checkbox-item">
+                                                <input
+                                                    type="checkbox"
+                                                    id={pv.value}
+                                                    data-value={pv.value}
+                                                    checked={pv.isChecked}
+                                                    onchange={handleValueSelectionChange}
+                                                />
+                                                <label for={pv.value} class="checkbox-label">{pv.label}</label>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template if:false={selectedControllingValues.length}>
+                                <p class="slds-text-body_small slds-text-color_error slds-m-top_small">
+                                    No values available. Select a controlling picklist first.
+                                </p>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Show dependent fields list if this field is a controlling picklist -->
+                    <template if:true={dependentFieldsList.length}>
+                        <div class="dependents-section slds-m-top_large">
+                            <h4 class="slds-text-heading_small">Fields that depend on this picklist</h4>
+                            <div class="slds-m-top_small">
+                                <template for:each={dependentFieldsList} for:item="dep">
+                                    <div key={dep.apiName} class="slds-text-body_regular slds-m-bottom_x-small">
+                                        • <strong>{dep.label}</strong> - visible when value is: {dep.triggerValues}
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div style="margin-top: 32px;">
+                        <lightning-button variant="brand" label="Save Changes" onclick={saveFieldChanges}></lightning-button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

@@ -1,0 +1,48 @@
+:host {
+    /* Custom hook for gradient (allowed, your namespace) */
+    --tf-brand-start: var(--slds-g-color-brand-base-50, #0176d3);
+    --tf-brand-end: var(--slds-g-color-brand-base-60, #014486);
+}
+
+/* Wrapper */
+.tf-button-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* Open button */
+.tf-open-btn {
+    background: linear-gradient(
+        135deg,
+        var(--tf-brand-start),
+        var(--tf-brand-end)
+    );
+    color: var(--slds-g-color-on-accent-1, #ffffff);
+    border: none;
+    border-radius: var(--slds-g-radius-border-2, 0.25rem);
+    font-size: var(--slds-g-font-scale-1, 0.875rem);
+    font-weight: var(--slds-g-font-weight-6, 600);
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    box-shadow: var(--slds-g-shadow-2, 0 2px 4px 0 #00000027);
+}
+
+/* Hover */
+.tf-open-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--slds-g-shadow-4, 0 2px 5px 0 #00000027);
+}
+
+/* Disabled */
+.tf-open-btn:disabled {
+    background: var(--slds-g-color-surface-container-2, #e5e5e5);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Hint text */
+.tf-hint {
+    font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+    color: var(--slds-g-color-neutral-base-65, #6b7280);
+}

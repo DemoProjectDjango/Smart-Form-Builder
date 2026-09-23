@@ -1,0 +1,51 @@
+<template>
+    <template if:true={isLoading}>
+        <lightning-spinner alternative-text="Checking site status..." size="medium"></lightning-spinner>
+    </template>
+
+    <template if:false={isLoading}>
+
+        <!-- ✅ Always show the checker, and let it open instructions modal -->
+        <c-site-name-verifier onshowinstructions={openModal}></c-site-name-verifier>
+
+        <!-- READY -->
+        <template if:true={isReady}>
+            <c-form-configurator></c-form-configurator>
+        </template>
+
+        <!-- NOT READY -->
+        <template if:false={isReady}>
+            <lightning-card title="Setup required: Public Form Site">
+                <div class="slds-p-around_medium">
+                    <p class="slds-text-body_regular">
+                        The Salesforce Site named <b>PublicForm</b> (or <b>PublicForms</b>) is not available or not Active, so the Form Configurator is blocked.
+                    </p>
+
+                    <template if:true={statusReason}>
+                        <p class="slds-text-color_weak slds-m-top_x-small">
+                            Reason: {statusReason}
+                        </p>
+                    </template>
+
+                    <div class="slds-m-top_medium slds-grid slds-wrap slds-gutters_small">
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-button variant="brand" label="Show instructions" onclick={openModal}></lightning-button>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                            <lightning-button label="Recheck" onclick={recheck}></lightning-button>
+                        </div>
+                    </div>
+                </div>
+            </lightning-card>
+        </template>
+
+        <!-- ✅ Use the shared instructions modal component -->
+        <c-public-form-instructions-modal
+            open={showModal}
+            site-label="PublicForm"
+            example-url={exampleBaseUrl}
+            onclose={closeModal}>
+        </c-public-form-instructions-modal>
+
+    </template>
+</template>

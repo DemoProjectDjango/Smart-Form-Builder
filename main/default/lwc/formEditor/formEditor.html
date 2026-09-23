@@ -1,0 +1,71 @@
+<template>
+    <div class="sidebar-fields">
+        <div class="fields-panel">
+            <div class="fields-header">
+                <h2 class="fields-title">Select Fields to Include</h2>
+                <p class="fields-subtitle">Choose which fields should appear in your form</p>
+            </div>
+
+            <div class="actions-section top-actions">
+                <lightning-button
+                    variant="brand"
+                    label="Save & Generate Form"
+                    onclick={saveForm}
+                    class="primary-button">
+                </lightning-button>
+
+                <div class="secondary-actions">
+                    <lightning-button
+                        variant="neutral"
+                        label="Select All"
+                        onclick={selectAllFields}
+                        class="secondary-button">
+                    </lightning-button>
+
+                    <lightning-button
+                        variant="neutral"
+                        label="Deselect All"
+                        onclick={deselectAllFields}
+                        class="secondary-button">
+                    </lightning-button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <lightning-input
+                    type="search"
+                    label="Search Fields"
+                    placeholder="Search by name or label..."
+                    value={searchTerm}
+                    onchange={handleFieldSearch}
+                    class="custom-input">
+                </lightning-input>
+            </div>
+
+            <div class="fields-list">
+                <template if:true={filteredFields.length}>
+                    <template for:each={filteredFields} for:item="field">
+                        <div key={field.name} class="field-item">
+                            <lightning-input
+                                type="checkbox"
+                                label={field.label}
+                                checked={field.selected}
+                                data-api-name={field.name}
+                                onchange={handleFieldSelection}
+                                class="field-checkbox">
+                            </lightning-input>
+
+                            <span class="field-type-badge">{field.type}</span>
+                        </div>
+                    </template>
+                </template>
+
+                <template if:false={filteredFields.length}>
+                    <div class="empty-state">
+                        <p class="empty-message">{emptyStateMessage}</p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</template>

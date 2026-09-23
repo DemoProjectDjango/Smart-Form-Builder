@@ -1,0 +1,7 @@
+.codebox {
+    padding: var(--slds-g-spacing-3, 0.75rem);
+    border-radius: var(--slds-g-radius-border-2, 0.25rem);
+    background: var(--slds-g-color-surface-2, #f3f3f3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    overflow-wrap: anywhere;
+}

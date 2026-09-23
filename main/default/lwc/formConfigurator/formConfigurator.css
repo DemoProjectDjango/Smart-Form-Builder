@@ -1,0 +1,126 @@
+/* formConfigurator.css
+   Blue theme, responsive, lint-clean, works in LWC scoped CSS
+*/
+
+:host {
+    display: block;
+
+    /* Custom theme tokens */
+    --fc-bg: #f6f9ff;
+    --fc-card: #ffffff;
+    --fc-text: #0b1f44;
+    --fc-muted: #5c6f91;
+    --fc-border: #d9e4ff;
+    --fc-brand: #1b61ff;
+    --fc-brand-2: #0b49d6;
+    --fc-shadow: 0 10px 30px rgba(17, 42, 104, 0.12);
+
+    /* Custom layout hook (do NOT use SLDS namespace) */
+    --fc-breakpoint-medium: 45rem; /* ~720px */
+
+    /* SLDS hooks with fallbacks */
+    --fc-radius: var(--slds-g-radius-border-4, 1rem);
+}
+
+/* Page wrapper */
+.config-container {
+    max-width: var(--fc-breakpoint-medium);
+    margin: var(--slds-g-spacing-5, 1.5rem);
+    padding: var(--slds-g-spacing-5, 1.5rem);
+    background: linear-gradient(180deg, var(--fc-bg), #ffffff 60%);
+    border-radius: var(--fc-radius);
+    border: var(--slds-g-sizing-border-1, 1px) solid var(--fc-border);
+    box-shadow: var(--fc-shadow);
+}
+
+/* Title */
+.config-container h1 {
+    margin: 0 0 var(--slds-g-spacing-4, 1rem);
+    font-size: var(--slds-g-font-scale-3, 1.125rem);
+    font-weight: var(--slds-g-font-weight-7, 700);
+    color: var(--fc-text);
+    letter-spacing: 0.2px;
+}
+
+/* Consistent spacing between inputs */
+.config-container lightning-combobox,
+.config-container lightning-input {
+    display: block;
+    margin-top: var(--slds-g-spacing-3, 0.75rem);
+    background: transparent;
+}
+
+/* Button row */
+.config-container lightning-button {
+    display: block;
+    margin-top: var(--slds-g-spacing-4, 1rem);
+}
+
+/* Primary CTA button */
+.config-container lightning-button::part(button) {
+    border-radius: var(--slds-g-radius-border-3, 0.5rem);
+    background: linear-gradient(90deg, var(--fc-brand), var(--fc-brand-2));
+    border: 0;
+    box-shadow: 0 10px 18px rgba(27, 97, 255, 0.25);
+    font-weight: var(--slds-g-font-weight-7, 700);
+}
+
+/* Button hover / focus */
+.config-container lightning-button::part(button):hover {
+    filter: brightness(0.98);
+    transform: translateY(-1px);
+    box-shadow:
+        0 6px 16px rgba(59, 130, 246, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.config-container lightning-button::part(button):focus {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(27, 97, 255, 0.22),
+        0 10px 18px rgba(27, 97, 255, 0.25);
+}
+
+/* Rounded modern inputs */
+.config-container lightning-input::part(input),
+.config-container lightning-combobox::part(input) {
+    border-radius: var(--slds-g-radius-border-3, 0.5rem);
+    border-color: var(--fc-border);
+}
+
+/* Input focus ring */
+.config-container lightning-input::part(input):focus,
+.config-container lightning-combobox::part(input):focus {
+    border-color: var(--fc-brand);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Labels + helper text */
+.config-container lightning-input::part(label),
+.config-container lightning-combobox::part(label) {
+    color: var(--fc-muted);
+    font-weight: var(--slds-g-font-weight-6, 600);
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+    .config-container {
+        margin: var(--slds-g-spacing-3, 0.75rem);
+        padding: var(--slds-g-spacing-4, 1rem);
+        border-radius: var(--slds-g-radius-border-4, 1rem);
+    }
+
+    .config-container h1 {
+        font-size: var(--slds-g-font-scale-2, 1rem);
+    }
+}
+
+@media (max-width: 420px) {
+    .config-container {
+        padding: var(--slds-g-spacing-3, 0.75rem);
+    }
+
+    .config-container h1 {
+        font-size: var(--slds-g-font-scale-1, 0.875rem);
+    }
+}

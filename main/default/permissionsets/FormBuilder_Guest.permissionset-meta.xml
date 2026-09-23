@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Form Builder Guest</label>
+    <description>Assign THIS to the guest user which grants object Edit permissions the Guest User License forbids.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+
+    <!-- Create the submission record; no Edit/Delete (guest license forbids object Edit anyway). -->
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Form_Submission__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+
+    <!-- Read-only on the parent form; required for lookup cross-reference validation on insert. -->
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Form__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+
+    <!-- Edit FLS on ONLY the two fields the code writes on the submission. -->
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Form_Submission__c.Payload_JSON__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Form_Submission__c.Form__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+</PermissionSet>

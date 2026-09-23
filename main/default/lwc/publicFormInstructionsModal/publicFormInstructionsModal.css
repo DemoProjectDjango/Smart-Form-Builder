@@ -1,0 +1,8 @@
+.codebox {
+    font-family: monospace;
+    padding: var(--slds-g-spacing-2, 0.5rem);
+    background: var(--slds-g-color-surface-2, #f3f3f3);
+    border: var(--slds-g-sizing-border-1, 1px) solid var(--slds-g-color-border-1, #e5e5e5);
+    border-radius: var(--slds-g-radius-border-1, 0.125rem);
+    word-break: break-all;
+}

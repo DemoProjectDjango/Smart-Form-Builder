@@ -1,0 +1,31 @@
+<template>
+    <div class="config-container">
+        <h1>Form Configuration</h1>
+        <lightning-combobox
+            label="Select Existing Form to Edit"
+            placeholder="None (Create New)"
+            options={formOptions}
+            value={selectedFormId}
+            onchange={handleFormSelection}>
+        </lightning-combobox>
+        <lightning-input
+            label="Form Name"
+            value={formName}
+            onchange={handleNameChange}
+            required>
+        </lightning-input>
+        <lightning-combobox
+            label="Select Object"
+            placeholder="Choose an object"
+            options={objectOptions}
+            value={selectedObject}
+            onchange={handleObjectChange}
+            required>
+        </lightning-combobox>
+        <lightning-button
+            variant="brand"
+            label="Next: Build Form"
+            onclick={handleNext}>
+        </lightning-button>
+    </div>
+</template>

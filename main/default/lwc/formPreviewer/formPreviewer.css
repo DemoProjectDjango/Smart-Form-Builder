@@ -1,0 +1,365 @@
+:host {
+  /* Map Twinforce (tf-*) tokens to SLDS v2 global styling hooks */
+  --tf-border-1: var(--slds-g-sizing-border-1, 1px);
+
+  --tf-surface-1: var(--slds-g-color-surface-1, #ffffff);
+  --tf-surface-2: var(--slds-g-color-surface-2, #f3f3f3);
+  --tf-surface-container-1: var(--slds-g-color-surface-container-1, var(--slds-g-color-surface-1));
+  --tf-surface-container-2: var(--slds-g-color-surface-container-2, var(--slds-g-color-surface-2));
+
+  --tf-border-color-1: var(--slds-g-color-border-1, #e5e5e5);
+  --tf-border-accent: var(--slds-g-color-brand-base-50, var(--slds-g-color-info-base-50, #0070d2));
+
+  --tf-text: var(--slds-g-color-on-surface-2, #2e2e2e);
+
+  --tf-font-2: var(--slds-g-font-scale-base, 0.875rem);
+  --tf-font-3: var(--slds-g-font-scale-2, 1rem);
+  --tf-font-4: var(--slds-g-font-scale-3, 1.125rem);
+
+  --tf-fw-5: var(--slds-g-font-weight-5, 500);
+  --tf-fw-6: var(--slds-g-font-weight-6, 600);
+  --tf-fw-7: var(--slds-g-font-weight-7, 700);
+
+  --tf-r-2: var(--slds-g-radius-border-1, 0.125rem);
+  --tf-r-3: var(--slds-g-radius-border-2, 0.25rem);
+  --tf-r-4: var(--slds-g-radius-border-3, 0.5rem);
+  --tf-r-circle: var(--slds-g-radius-border-circle, 100%);
+
+  --tf-s-1: var(--slds-g-spacing-1, 0.25rem);
+  --tf-s-2: var(--slds-g-spacing-2, 0.5rem);
+  --tf-s-3: var(--slds-g-spacing-3, 0.75rem);
+  --tf-s-4: var(--slds-g-spacing-4, 1rem);
+  --tf-s-5: var(--slds-g-spacing-5, 1.5rem);
+  --tf-s-8: var(--slds-g-spacing-8, 3rem);
+
+  --tf-error-bg: var(--slds-g-color-error-container-1, #fee0e0);
+  --tf-error-border: var(--slds-g-color-error-base-40, #ea4335);
+
+  --tf-max-list-h: 20rem;
+
+  /* Inputs */
+  --tf-input-height: var(--slds-g-sizing-9, 2rem);
+
+  /* Shadows (use SLDS elevations) */
+  --tf-shadow-2: var(--slds-g-shadow-2, none);
+  --tf-shadow-4: var(--slds-g-shadow-4, var(--tf-shadow-2));
+
+  /* Backdrop */
+  --tf-backdrop: var(--slds-g-color-on-surface-3, rgba(0, 0, 0, 0.4));
+
+  display: block;
+}
+
+/* ---------------------------
+   Preview layout
+---------------------------- */
+
+.preview-container {
+  padding: var(--tf-s-3);
+}
+
+.preview-form-card {
+  background: var(--tf-surface-1);
+  border: var(--tf-border-1) solid var(--tf-border-color-1);
+  border-radius: var(--tf-r-4);
+  padding: var(--tf-s-4);
+}
+
+.preview-title {
+  margin: 0 0 var(--tf-s-3) 0;
+  font-size: var(--tf-font-3);
+  font-weight: var(--tf-fw-7);
+  color: var(--tf-text);
+}
+
+.preview-fields-list {
+  display: grid;
+  gap: var(--tf-s-3);
+}
+
+.preview-field-item {
+  border: var(--tf-border-1) solid var(--tf-border-color-1);
+  border-radius: var(--tf-r-3);
+  padding: var(--tf-s-3);
+  background: var(--tf-surface-1);
+}
+
+.preview-field-item_selected {
+  border-color: var(--tf-border-accent);
+  box-shadow: 0 0 0 var(--tf-border-1) var(--tf-border-accent) inset;
+}
+
+.preview-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--tf-s-2);
+  margin-bottom: var(--tf-s-2);
+}
+
+.preview-field-label {
+  font-weight: var(--tf-fw-6);
+  color: var(--tf-text);
+}
+
+.required-indicator {
+  color: var(--tf-error-border);
+  margin-left: var(--tf-s-1);
+}
+
+.preview-field-item input,
+.preview-field-item textarea,
+.preview-field-item select {
+  border: var(--tf-border-1) solid var(--tf-border-color-1);
+  border-radius: var(--tf-r-3);
+  padding: var(--tf-s-2) var(--tf-s-3);
+  background: var(--tf-surface-container-2);
+  box-sizing: border-box;
+  color: var(--tf-text);
+}
+
+.preview-field-item textarea {
+  /* Avoid hardcoded px: approximate 84px using spacing hooks */
+  min-height: calc(var(--tf-s-8) + var(--tf-s-4));
+  resize: vertical;
+}
+
+.preview-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--tf-s-3);
+}
+
+.preview-submit-btn {
+  background: var(--tf-border-accent);
+  color: var(--slds-g-color-on-accent-1, #ffffff);
+  border: 0;
+  border-radius: var(--tf-r-3);
+  padding: var(--tf-s-2) var(--tf-s-3);
+  font-weight: var(--tf-fw-6);
+  cursor: pointer;
+}
+
+.preview-submit-btn:hover {
+  filter: brightness(0.95);
+}
+
+.empty-preview-state {
+  border: var(--tf-border-1) dashed var(--tf-border-color-1);
+  border-radius: var(--tf-r-3);
+  padding: var(--tf-s-4);
+  background: var(--tf-surface-container-2);
+}
+
+.preview-container,
+.preview-form-card {
+  transform: none !important;
+  filter: none !important;
+}
+
+/* ---------------------------
+   Modal — redesigned
+---------------------------- */
+
+/* Overlay */
+.modal {
+  position: fixed !important;
+  inset: 0 !important;
+
+  /* Remove explicit width/height to avoid non-hook sizing */
+  background: var(--tf-backdrop) !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+
+  animation: modal-fade-in 0.18s ease !important;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Modal box */
+.modal-content {
+  position: relative !important;
+  z-index: 2147483647 !important;
+
+  width: min(540px, 92vw) !important;
+  max-height: 88vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  background: var(--tf-surface-1) !important;
+  border-radius: var(--tf-r-4) !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+
+  box-shadow: var(--tf-shadow-4) !important;
+
+  animation: modal-slide-up 0.22s cubic-bezier(0.34, 1.3, 0.64, 1) !important;
+}
+
+@keyframes modal-slide-up {
+  from { opacity: 0; transform: translateY(var(--tf-s-5)) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Remove custom scrollbar styling (often flagged by analyzers) */
+
+/* ── Modal header strip ── */
+.modal-content h2 {
+  margin: 0 !important;
+  padding: var(--tf-s-5) calc(var(--tf-s-8) + var(--tf-s-4)) var(--tf-s-4) var(--tf-s-4) !important;
+  font-size: var(--tf-font-3) !important;
+  font-weight: var(--tf-fw-7) !important;
+  color: var(--tf-text) !important;
+  border-bottom: var(--tf-border-1) solid var(--tf-border-color-1) !important;
+  background: var(--tf-surface-container-2) !important;
+  border-radius: var(--tf-r-4) var(--tf-r-4) 0 0 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* ── Body padding wrapper (everything after h2) ── */
+.modal-content > *:not(h2):not(.close-btn) {
+  padding-left: var(--tf-s-4) !important;
+  padding-right: var(--tf-s-4) !important;
+}
+
+/* Give the last child (the save-button div) bottom breathing room */
+.modal-content > div[style] {
+  padding-bottom: var(--tf-s-4) !important;
+}
+
+/* Close button */
+.close-btn {
+  position: absolute !important;
+  top: var(--tf-s-3) !important;
+  right: var(--tf-s-4) !important;
+
+  width: var(--tf-s-5) !important;
+  height: var(--tf-s-5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  cursor: pointer !important;
+  font-size: var(--tf-font-3) !important;
+  line-height: var(--slds-g-font-line-height-1) !important;
+  user-select: none !important;
+
+  color: var(--slds-g-color-on-surface-3, #181818) !important;
+  background: var(--tf-surface-2) !important;
+  border-radius: var(--tf-r-circle) !important;
+  transition: background 0.15s, color 0.15s !important;
+}
+
+.close-btn:hover {
+  background: var(--tf-surface-container-2) !important;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e) !important;
+}
+
+/* ── Labels ── */
+.modal-content label {
+  display: block;
+  margin: var(--tf-s-4) 0 var(--tf-s-1) 0;
+  font-size: var(--slds-g-font-scale-base, 0.875rem);
+  font-weight: var(--tf-fw-6);
+  color: var(--tf-text);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+/* ── Text inputs ── */
+.modal-content input[type="text"] {
+  display: block;
+  box-sizing: border-box;
+
+  height: var(--tf-input-height);
+  border: var(--tf-border-1) solid var(--tf-border-color-1);
+  border-radius: var(--tf-r-3);
+  padding: 0 var(--tf-s-3);
+  font-size: var(--slds-g-font-scale-1, var(--tf-font-2));
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  background: var(--tf-surface-1);
+
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.modal-content input[type="text"]:focus {
+  outline: none;
+  border-color: var(--tf-border-accent);
+  box-shadow: 0 0 0 var(--tf-s-2) var(--slds-g-color-brand-base-20, var(--tf-border-accent));
+}
+
+/* ── Checkbox group ── */
+.checkbox-group {
+  margin-top: var(--tf-s-4);
+  display: grid;
+  gap: var(--tf-s-3);
+  padding: var(--tf-s-4);
+  background: var(--tf-surface-container-2);
+  border: var(--tf-border-1) solid var(--tf-border-color-1);
+  border-radius: var(--tf-r-3);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tf-s-3);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: var(--tf-s-4);
+  height: var(--tf-s-4);
+  margin-top: var(--tf-s-1);
+  accent-color: var(--tf-border-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkbox-label {
+  display: inline-block;
+  font-size: var(--slds-g-font-scale-base, 0.875rem);
+  line-height: var(--slds-g-font-line-height-2, 1.4);
+  font-weight: var(--tf-fw-5);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  cursor: pointer;
+}
+
+/* ── Dependency section ── */
+.dependency-section {
+  margin-top: var(--tf-s-4);
+  padding: var(--tf-s-4);
+  border: var(--tf-border-1) solid var(--slds-g-color-border-1, #e5e5e5);
+  border-radius: var(--tf-r-3);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.values-checkboxes {
+  display: grid;
+  gap: var(--tf-s-2);
+  margin-top: var(--tf-s-3);
+}
+
+/* ── Dependents section ── */
+.dependents-section {
+  margin-top: var(--tf-s-4);
+  padding: var(--tf-s-4);
+  border: var(--tf-border-1) solid var(--tf-border-color-1);
+  border-radius: var(--tf-r-3);
+  background: var(--tf-surface-container-2);
+}
+
+.dependents-section h4 {
+  margin: 0 0 var(--tf-s-3) 0 !important;
+  font-size: var(--slds-g-font-scale-base, 0.875rem) !important;
+  font-weight: var(--tf-fw-7) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.03em !important;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e) !important;
+}
