@@ -76,7 +76,7 @@ public with sharing class FormController {
                 Payload_JSON__c = payloadJson,
                 Form__c         = formId
             );
-            new GuestFormService().insertSubmission(submission);
+            new GuestSubmissionWriter().insertSubmission(submission);
             return 'Success! Submission saved.';
         } catch (DmlException e) {
             return 'Submission error: ' + e.getDmlMessage(0);
@@ -87,23 +87,20 @@ public with sharing class FormController {
 
     // ── Guest elevated-access service ────────────────────────────────────────
     /**
-     * @description Private without sharing inner class that performs the two (and
-     *              only two) operations the unauthenticated Site guest user needs.
+     * @description Private without sharing inner class that performs the single
+     *              operation that needs elevated access for the unauthenticated Site
+     *              guest user.
      *
      *              WHY without sharing / SYSTEM_MODE here:
-     *              1. fetchFormForDisplay — the guest user has no sharing-based record
-     *                 visibility and no FLS on the packaged Form__c fields. Rendering a
-     *                 published form for anonymous visitors is the core product feature;
-     *                 the query is read-only, selects only the four fields needed to
-     *                 render, is filtered by a type-checked Id, and every value is
-     *                 passed through the HTML/CSS/JS sanitizers before output.
-     *              2. insertSubmission — the guest user has no FLS on Form_Submission__c.
-     *                 The record is constructed in the outer class with a fixed,
-     *                 code-controlled field list (raw payload + parent form lookup);
-     *                 no guest-supplied field names are ever written.
+     *              fetchFormForDisplay — the guest user has no sharing-based record
+     *              visibility and no FLS on the packaged Form__c fields. Rendering a
+     *              published form for anonymous visitors is the core product feature;
+     *              the query is read-only, selects only the four fields needed to
+     *              render, is filtered by a type-checked Id, and every value is
+     *              passed through the HTML/CSS/JS sanitizers before output.
      *
      *              This class is private and not accessible outside FormController,
-     *              limiting the elevated scope to exactly these operations.
+     *              limiting the elevated scope to exactly this read.
      */
     private without sharing class GuestFormService {
 
@@ -121,8 +118,19 @@ public with sharing class FormController {
             return forms.isEmpty() ? null : forms[0];
         }
 
+    }
+
+    /**
+     * @description Writes the visitor's submission in user mode: sharing, object
+     *              permissions and field-level security of the running (guest) user are
+     *              enforced, using the Form Builder Guest permission set. The record is
+     *              constructed by the caller with a fixed, code-controlled field list
+     *              (raw payload + parent form lookup); no guest-supplied field names are
+     *              ever written.
+     */
+    private with sharing class GuestSubmissionWriter {
         void insertSubmission(Form_Submission__c submission) {
-            Database.insert(submission, AccessLevel.USER_MODE);
+            insert as user submission;
         }
     }
 

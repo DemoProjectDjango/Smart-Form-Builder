@@ -1,0 +1,76 @@
+<template>
+    <div class="visitor-stage">
+        <div class="browser">
+            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="urlbar">{displayUrl}</span>
+        </div>
+        <div class="vf">
+            <template lwc:if={notFound}>
+                <div class="vf-notfound" role="alert">
+                    <h4>Form Not Found</h4>
+                    <p>The form ID may be incorrect or the form no longer exists.</p>
+                </div>
+            </template>
+            <template lwc:else>
+                <div class="vf-card">
+                    <h4>{title}</h4>
+                    <form novalidate onsubmit={handleSubmit} onchange={handleChange}>
+                        <template lwc:if={hasFields}>
+                            <template for:each={rows} for:item="row">
+                                <div key={row.key} class={row.wrapClass}>
+                                    <template lwc:if={row.isBoolean}>
+                                        <label class="vf-check" for={row.inputId}>
+                                            <input type="checkbox" id={row.inputId} data-api={row.apiName} />
+                                            {row.label}
+                                        </label>
+                                    </template>
+                                    <template lwc:else>
+                                        <label for={row.inputId}>
+                                            {row.label}<template lwc:if={row.required}><span class="r">*</span></template>
+                                        </label>
+                                        <template lwc:if={row.isPicklist}>
+                                            <select id={row.inputId} data-api={row.apiName}>
+                                                <option value="">--Select--</option>
+                                                <template for:each={row.options} for:item="opt">
+                                                    <option key={opt.key} value={opt.value}>{opt.label}</option>
+                                                </template>
+                                            </select>
+                                        </template>
+                                        <template lwc:elseif={row.isMulti}>
+                                            <select id={row.inputId} data-api={row.apiName} multiple>
+                                                <template for:each={row.options} for:item="opt">
+                                                    <option key={opt.key} value={opt.value}>{opt.label}</option>
+                                                </template>
+                                            </select>
+                                        </template>
+                                        <template lwc:elseif={row.isTextarea}>
+                                            <textarea id={row.inputId} data-api={row.apiName} placeholder={row.placeholder}></textarea>
+                                        </template>
+                                        <template lwc:elseif={row.isDate}>
+                                            <input type="date" id={row.inputId} data-api={row.apiName} />
+                                        </template>
+                                        <template lwc:elseif={row.isDatetime}>
+                                            <input type="datetime-local" id={row.inputId} data-api={row.apiName} />
+                                        </template>
+                                        <template lwc:else>
+                                            <input type="text" id={row.inputId} data-api={row.apiName} placeholder={row.placeholder} />
+                                        </template>
+                                    </template>
+                                </div>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <p class="vf-empty">No fields yet</p>
+                        </template>
+                        <button class="vf-submit" type="submit">Submit</button>
+                        <div aria-live="polite">
+                            <template lwc:if={message}>
+                                <div class={messageClass}>{message}</div>
+                            </template>
+                        </div>
+                    </form>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

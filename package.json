@@ -1,0 +1,17 @@
+{
+  "name": "smart-form-builder",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart Forms & Surveys (native) - Salesforce package (LWC unit tests)",
+  "scripts": {
+    "test:unit": "sfdx-lwc-jest",
+    "test:unit:watch": "sfdx-lwc-jest --watch",
+    "test:unit:coverage": "sfdx-lwc-jest --coverage"
+  },
+  "devDependencies": {
+    "@lwc/eslint-plugin-lwc": "^2.0.0",
+    "@salesforce/eslint-config-lwc": "^3.7.0",
+    "@salesforce/sfdx-lwc-jest": "^7.0.1",
+    "eslint": "^8.57.0"
+  }
+}

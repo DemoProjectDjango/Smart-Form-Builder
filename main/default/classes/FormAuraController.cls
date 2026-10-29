@@ -15,7 +15,7 @@ public with sharing class FormAuraController {
             applyFormFields(form, req);
             bumpVersion(form);
             try {
-                Database.update(form, AccessLevel.USER_MODE);
+                update as user form;
             } catch (DmlException e) {
                 throw new AuraHandledException('Failed to update form: ' + e.getDmlMessage(0));
             }
@@ -26,7 +26,7 @@ public with sharing class FormAuraController {
         Form__c newForm = buildNewForm(req);
         newForm.Version__c = calculateNextVersionForNewForm(req.name);
         try {
-            Database.insert(newForm, AccessLevel.USER_MODE);
+            insert as user newForm;
         } catch (DmlException e) {
             throw new AuraHandledException('Failed to create form: ' + e.getDmlMessage(0));
         }

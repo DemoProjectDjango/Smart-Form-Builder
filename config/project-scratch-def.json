@@ -1,0 +1,6 @@
+{
+  "orgName": "Smart Form Builder Dev",
+  "edition": "Developer",
+  "hasSampleData": false,
+  "features": ["EnableSetPasswordInApi"]
+}

@@ -1,272 +1,178 @@
 <template>
-    <template if:true={open}>
-        <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
-            <div class="slds-modal__container">
-                <header class="slds-modal__header">
-                    <h2 class="slds-text-heading_medium">One-Time Setup: Enable Public Form Submissions</h2>
+    <template lwc:if={open}>
+        <section
+            role="dialog"
+            tabindex="-1"
+            aria-modal="true"
+            aria-labelledby="setup-title"
+            aria-describedby="setup-tagline"
+            class="slds-modal slds-fade-in-open slds-modal_large"
+            data-id="dialog"
+            onkeydown={handleKeydown}>
+            <div class="slds-modal__container setup-container">
+
+                <!-- Header -->
+                <header class="setup-header">
+                    <div class="setup-header__text">
+                        <p class="setup-eyebrow">One-time setup</p>
+                        <h2 id="setup-title" class="setup-title">Enable public form submissions</h2>
+                        <p id="setup-tagline" class="setup-tagline">
+                            5 steps in Salesforce Setup, about 10 minutes. You only do this once per org.
+                        </p>
+                    </div>
+                    <lightning-button-icon
+                        icon-name="utility:close"
+                        variant="bare-inverse"
+                        size="large"
+                        alternative-text="Close setup guide"
+                        title="Close"
+                        class="setup-close"
+                        onclick={handleClose}>
+                    </lightning-button-icon>
+                    <div class="setup-progress" aria-hidden="true">
+                        <div class="setup-progress__bar" style={progressStyle}></div>
+                    </div>
                 </header>
 
-                <div class="slds-modal__content slds-p-around_medium">
+                <!-- Body -->
+                <div class="slds-modal__content setup-body">
+                    <div class="setup-layout">
 
-                    <p class="slds-text-body_regular">
-                        Before your forms can be filled out by people outside your organisation,
-                        you need to complete a one-time setup. Follow each step below in order,
-                        then click <b>Recheck</b> on the previous screen when done.
-                    </p>
+                        <!-- Step rail -->
+                        <nav class="setup-rail" aria-label="Setup steps">
+                            <ol class="rail-list">
+                                <template for:each={steps} for:item="step">
+                                    <li key={step.id} class="rail-item">
+                                        <button
+                                            type="button"
+                                            class={step.railClass}
+                                            data-index={step.index}
+                                            aria-current={step.ariaCurrent}
+                                            onclick={handleRailClick}>
+                                            <span class="rail-step__marker">
+                                                <template lwc:if={step.isDone}>
+                                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse" alternative-text="Visited"></lightning-icon>
+                                                </template>
+                                                <template lwc:else>{step.number}</template>
+                                            </span>
+                                            <span class="rail-step__label">{step.short}</span>
+                                        </button>
+                                    </li>
+                                </template>
+                            </ol>
+                        </nav>
 
-                    <!-- STEP 1 -->
-                    <div class="slds-m-top_medium">
-                        <h3 class="slds-text-title_bold">Step 1 — Create and Activate the Salesforce Site</h3>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small slds-m-bottom_x-small">
-                            A Salesforce Site creates a public web address that anyone can visit without needing
-                            a Salesforce account. This is how your forms will be shared with external users.
-                        </p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>Click the <b>gear icon ⚙</b> at the top right of any Salesforce page and select <b>Setup</b></li>
-                            <li>In the left-hand search box (Quick Find), type <b>Sites</b> and click <b>Sites</b> when it appears</li>
-                            <li>Click the <b>New</b> button</li>
-                            <li>
-                                In the <b>Site Label</b> field, type exactly: <b>{siteLabel}</b><br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    The <b>Site Name</b> field directly below it will fill in automatically — leave it as-is.
-                                </span>
-                            </li>
-                            <li>
-                                In the <b>Site URL Path Prefix</b> field (sometimes labelled UrlPathPrefix), type exactly: <b>{siteLabel}</b><br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    This is the last part of your public web address, e.g.
-                                    <i>…salesforce-sites.com/<b>PublicForm</b></i>
-                                </span>
-                            </li>
-                            <li>In the <b>Active Site Home Page</b> field, select: <b>{visualforcePageName}</b></li>
-                            <li>Click <b>Save</b></li>
-                            <li>
-                                You will be taken back to the Sites list. Look at the <b>Status</b> column next to your site.<br/>
-                                — If it says <b>Active</b>, you are done with this step.<br/>
-                                — If it says <b>Inactive</b>, click on the site name, then click the <b>Activate</b> button.
-                            </li>
-                        </ol>
-                    </div>
+                        <!-- Current step -->
+                        <div class="setup-step" aria-live="polite">
+                            <template lwc:if={currentStep}>
+                                <p class="step-counter">{stepCounter}</p>
+                                <div class="step-heading">
+                                    <span class="step-heading__icon">
+                                        <lightning-icon icon-name={currentStep.icon} size="small" alternative-text=""></lightning-icon>
+                                    </span>
+                                    <h3 class="step-title">{currentStep.title}</h3>
+                                </div>
 
-                    <!-- STEP 2 -->
-                    <div class="slds-m-top_medium">
-                        <h3 class="slds-text-title_bold">Step 2 — Grant Public Access to the Form System</h3>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small slds-m-bottom_x-small">
-                            When someone opens your public form, Salesforce needs permission to run the form
-                            and save the responses. This step grants that permission to anonymous visitors, in
-                            two parts.
-                        </p>
+                                <div class="step-where">
+                                    <lightning-icon icon-name="utility:setup" size="xx-small" alternative-text="Where"></lightning-icon>
+                                    <span>{currentStep.whereLabel}</span>
+                                </div>
 
-                        <p class="slds-text-body_small slds-m-top_small"><b>📌 Part A — Allow the form page and code to run:</b></p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>Go to <b>Setup → Sites</b> and click on your site name (<b>{siteLabel}</b>)</li>
-                            <li>
-                                Click the <b>Public Access Settings</b> button near the top of the page.<br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    This opens a profile page — think of it as the settings for anonymous visitors to your site.
-                                </span>
-                            </li>
-                            <li>
-                                Scroll down to find <b>Enabled Apex Class Access</b> → click <b>Edit</b>.<br/>
-                                Move all of the following items from the left box to the right box, then click <b>Save</b>:
-                                <ul class="slds-list_dotted slds-m-left_large slds-m-top_x-small">
-                                    <template for:each={apexClasses} for:item="cls">
-                                        <li key={cls}><b>{cls}</b></li>
+                                <p class="step-why">{currentStep.why}</p>
+
+                                <ol class="step-actions">
+                                    <template for:each={currentStep.items} for:item="item">
+                                        <li key={item.key} class="step-action">
+                                            <template for:each={item.segments} for:item="seg">
+                                                <template lwc:if={seg.isUi}>
+                                                    <strong key={seg.key} class="seg-ui">{seg.value}</strong>
+                                                </template>
+                                                <template lwc:elseif={seg.isValue}>
+                                                    <span key={seg.key} class="seg-value">
+                                                        <code class="seg-value__text">{seg.value}</code>
+                                                        <template lwc:if={seg.copyable}>
+                                                            <button
+                                                                type="button"
+                                                                class="seg-value__copy"
+                                                                data-value={seg.value}
+                                                                title="Copy"
+                                                                onclick={handleCopy}>
+                                                                <lightning-icon icon-name="utility:copy" size="xx-small" alternative-text="Copy"></lightning-icon>
+                                                            </button>
+                                                        </template>
+                                                    </span>
+                                                </template>
+                                                <template lwc:else>
+                                                    <span key={seg.key}>{seg.value}</span>
+                                                </template>
+                                            </template>
+                                        </li>
                                     </template>
-                                </ul>
-                            </li>
-                            <li>
-                                Scroll down to find <b>Enabled Visualforce Page Access</b> → click <b>Edit</b>.<br/>
-                                Move the following item to the right box, then click <b>Save</b>:
-                                <ul class="slds-list_dotted slds-m-left_large slds-m-top_x-small">
-                                    <li><b>{visualforcePageName}</b></li>
-                                </ul>
-                            </li>
-                        </ol>
+                                </ol>
 
-                        <p class="slds-text-body_small slds-m-top_medium"><b>📌 Part B — Give the visitor access to the form objects:</b></p>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small slds-m-bottom_x-small">
-                            Rather than setting object and field access by hand, assign the ready-made
-                            <b>Form Builder Guest</b> permission set to your site's guest user. It grants exactly
-                            what a public submission needs (create a submission, and read the form it belongs to)
-                            and nothing more.
-                        </p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>
-                                Still on the <b>Public Access Settings</b> page for your site, click the
-                                <b>View Users</b> button near the top.<br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    This shows the single anonymous "guest" user for your site.
-                                </span>
-                            </li>
-                            <li>Click the guest user's <b>name</b> to open their user record</li>
-                            <li>Find the <b>Permission Set Assignments</b> section and click <b>Edit Assignments</b></li>
-                            <li>
-                                In the <b>Available Permission Sets</b> box, select <b>Form Builder Guest</b>,
-                                click <b>Add</b> to move it to <b>Enabled Permission Sets</b>, then click <b>Save</b>
-                            </li>
-                        </ol>
-                        <p class="slds-text-body_small slds-m-top_small slds-text-color_weak">
-                            ⚠️ Assign <b>only</b> the <b>Form Builder Guest</b> permission set to the guest user.
-                            Do <b>not</b> assign the admin permission set from Step 4 to the guest — the Guest User
-                            License will reject it — and do not grant the guest any other object access.
-                        </p>
+                                <template lwc:if={currentStep.hasExample}>
+                                    <div class="step-example">
+                                        <span class="step-example__label">Example</span>
+                                        <code class="step-example__value">{currentStep.example}</code>
+                                    </div>
+                                </template>
+
+                                <template lwc:if={currentStep.hasCallout}>
+                                    <div class={currentStep.calloutClass} role="note">
+                                        <lightning-icon icon-name={currentStep.calloutIcon} size="x-small" alternative-text=""></lightning-icon>
+                                        <p>{currentStep.calloutText}</p>
+                                    </div>
+                                </template>
+
+                                <template lwc:if={isLast}>
+                                    <div class="step-finish">
+                                        <lightning-icon icon-name="utility:success" size="small" alternative-text=""></lightning-icon>
+                                        <div>
+                                            <p class="step-finish__title">That's everything</p>
+                                            <p>
+                                                Close this guide and click <strong>Recheck</strong>. Then open any form's link
+                                                in a private browser window and send a test submission.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
                     </div>
-
-                    <!-- STEP 3 -->
-                    <div class="slds-m-top_medium">
-                        <h3 class="slds-text-title_bold">Step 3 — Let Visitors See Your Published Forms (Sharing Rule)</h3>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small slds-m-bottom_x-small">
-                            The permission set in Step 2 lets visitors know the Form object exists, but it does not
-                            let them open any specific form record. Anonymous visitors get access to individual
-                            records only through a special <b>guest user sharing rule</b>. Without this, saving a
-                            submission fails with an "insufficient access rights" error, because the form the
-                            submission points to can't be read.
-                        </p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>Go to <b>Setup → Sharing Settings</b> (search "Sharing Settings" in Quick Find)</li>
-                            <li>Scroll down to the <b>Form</b> section and find <b>Form Sharing Rules</b> → click <b>New</b></li>
-                            <li>For <b>Rule Type</b>, choose <b>Guest user access, based on criteria</b></li>
-                            <li>Give it any <b>Label</b> you like, e.g. <b>Public Forms Visible to Guests</b></li>
-                            <li>
-                                Under <b>Criteria</b>, set: Field = <b>Is Public</b>, Operator = <b>equals</b>, Value = <b>True</b><br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    This shares only forms you have explicitly marked public — not every form in your org.
-                                </span>
-                            </li>
-                            <li>
-                                For <b>Share with</b>, select your site's guest user
-                                (usually named <b>{siteLabel} Site Guest User</b>)
-                            </li>
-                            <li>Set <b>Access Level</b> to <b>Read Only</b> (the only option available for guests)</li>
-                            <li>Click <b>Save</b> and wait for the sharing recalculation to finish</li>
-                        </ol>
-                        <p class="slds-text-body_small slds-m-top_small slds-text-color_weak">
-                            ⚠️ <b>Mark each form as public.</b> The <b>Is Public</b> checkbox on a form is <b>off</b> by
-                            default. Open every form you want visitors to submit and tick <b>Is Public</b> — otherwise
-                            the sharing rule above won't match it and the form stays inaccessible to visitors.
-                        </p>
-                    </div>
-
-                    <!-- STEP 4 -->
-                    <div class="slds-m-top_medium">
-                        <h3 class="slds-text-title_bold">Step 4 — Give Admin Users Access to the Form Builder</h3>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small slds-m-bottom_x-small">
-                            This step gives specific Salesforce users the ability to create and manage forms.
-                            You must assign access to yourself first, and then to anyone else who will use the Form Builder.
-                        </p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>Go to <b>Setup → Permission Sets</b> (search "Permission Sets" in the Quick Find box)</li>
-                            <li>Click on <b>{permissionSetName}</b> in the list</li>
-                            <li>Click the <b>Manage Assignments</b> button</li>
-                            <li>Click <b>Add Assignments</b></li>
-                            <li>
-                                Find and select yourself from the list. You can also select any other user
-                                who needs access to build or manage forms — <b>only assign this to users
-                                with System Administrator or equivalent administrative access</b>, as this
-                                permission set grants access to sensitive form and submission data.
-                            </li>
-                            <li>Click <b>Assign</b>, then click <b>Done</b></li>
-                        </ol>
-                        <p class="slds-text-body_small slds-m-top_small slds-text-color_weak">
-                            💡 This admin permission set (<b>{permissionSetName}</b>) is for form builders only.
-                            Do <b>not</b> assign it to your site's guest user — the guest gets the separate
-                            <b>Form Builder Guest</b> set in Step 2. If you skip this step, you will see errors
-                            when trying to open or save forms.
-                        </p>
-                    </div>
-
-                    <!-- STEP 5 -->
-                    <div class="slds-m-top_medium">
-                        <h3 class="slds-text-title_bold">Step 5 — Save Your Site's Web Address in the App Settings</h3>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small slds-m-bottom_x-small">
-                            The app needs to know your site's web address so it can generate a shareable link
-                            for each form you create. You will enter this address in two places on the same page.
-                        </p>
-
-                        <p class="slds-text-body_small slds-m-bottom_x-small">
-                            <b>First — find your site's web address:</b>
-                        </p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>Go to <b>Setup → Sites</b> and click your site name (<b>{siteLabel}</b>)</li>
-                            <li>
-                                At the top of the page, find the <b>Site URL</b> field and copy the full address shown there.<br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    It will look something like:
-                                    <i>https://your-company.my.salesforce-sites.com/PublicForm</i><br/>
-                                    Copy this — you will paste it twice in the next steps.
-                                </span>
-                            </li>
-                        </ol>
-
-                        <p class="slds-text-body_small slds-m-top_medium slds-m-bottom_x-small">
-                            <b>Next — open Custom Settings:</b>
-                        </p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>Go to <b>Setup → Custom Settings</b> (search "Custom Settings" in the Quick Find box)</li>
-                            <li>Find <b>{customSettingName}</b> in the list and click <b>Manage</b> next to it</li>
-                        </ol>
-
-                        <p class="slds-text-body_small slds-m-top_medium slds-m-bottom_x-small">
-                            <b>You will now see two sections on this page. Complete both:</b>
-                        </p>
-
-                        <p class="slds-text-body_small slds-m-top_small"><b>📌 Place 1 — Add your user (top section):</b></p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>
-                                Near the top of the page, look for a section with a <b>New</b> button
-                                next to a user or profile list — this is the user-level settings area.
-                            </li>
-                            <li>Click <b>New</b> in that section</li>
-                            <li>
-                                In the <b>User</b> field, search for and select the same admin user
-                                you assigned the permission set to in Step 4
-                            </li>
-                            <li>
-                                In the <b>{customSettingFieldLabel}</b> field, paste your site URL
-                                and then type <b>?id=</b> at the very end of it.<br/>
-                                <span class="slds-text-color_weak" style="font-size: 0.85rem;">
-                                    Example: <i>https://your-company.my.salesforce-sites.com/PublicForm<b>?id=</b></i><br/>
-                                    The <b>?id=</b> at the end is important — the app adds the form's unique ID after it automatically.
-                                </span>
-                            </li>
-                            <li>Click <b>Save</b></li>
-                        </ol>
-
-                        <p class="slds-text-body_small slds-m-top_medium"><b>📌 Place 2 — Set the default for the whole organisation (bottom section):</b></p>
-                        <ol class="slds-list_ordered slds-m-left_large slds-m-top_x-small">
-                            <li>
-                                Scroll down to the section labelled <b>Default Organization Level Value</b>
-                            </li>
-                            <li>Click <b>Edit</b> in that section</li>
-                            <li>
-                                In the <b>{customSettingFieldLabel}</b> field, paste your site URL
-                                again and type <b>?id=</b> at the very end — exactly as you did above
-                            </li>
-                            <li>Click <b>Save</b></li>
-                        </ol>
-
-                        <p class="slds-text-body_small slds-m-top_small slds-text-color_weak">
-                            ⚠️ Both places must have the URL ending in <b>?id=</b> — without this,
-                            the shareable form link will not work correctly.
-                        </p>
-                    </div>
-
-                    <!-- DONE -->
-                    <div class="slds-m-top_large slds-box slds-theme_shade">
-                        <p class="slds-text-body_regular">
-                            ✅ <b>All five steps done?</b> Close this dialog and click <b>Recheck</b> on the previous screen.
-                            The Form Builder will unlock automatically once your Site is detected as Active.
-                        </p>
-                    </div>
-
                 </div>
 
-                <footer class="slds-modal__footer">
-                    <lightning-button variant="neutral" label="Close" onclick={handleClose}></lightning-button>
+                <!-- Footer -->
+                <footer class="setup-footer">
+                    <span class="setup-footer__counter">{stepCounter}</span>
+                    <div class="setup-footer__actions">
+                        <lightning-button
+                            label="Back"
+                            icon-name="utility:chevronleft"
+                            onclick={handleBack}
+                            disabled={isFirst}>
+                        </lightning-button>
+                        <template lwc:if={isLast}>
+                            <lightning-button
+                                variant="brand"
+                                label="Done"
+                                onclick={handleClose}
+                                class="slds-m-left_x-small">
+                            </lightning-button>
+                        </template>
+                        <template lwc:else>
+                            <lightning-button
+                                variant="brand"
+                                label="Next"
+                                icon-name="utility:chevronright"
+                                icon-position="right"
+                                onclick={handleNext}
+                                class="slds-m-left_x-small">
+                            </lightning-button>
+                        </template>
+                    </div>
                 </footer>
             </div>
         </section>
-        <div class="slds-backdrop slds-backdrop_open"></div>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
     </template>
 </template>

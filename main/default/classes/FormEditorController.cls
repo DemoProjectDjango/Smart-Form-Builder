@@ -96,7 +96,7 @@ public with sharing class FormEditorController {
             throw new AuraHandledException('You do not have permission to update Form__c.');
         }
         try {
-            Database.update(form, AccessLevel.USER_MODE);
+            update as user form;
         } catch (Exception e) {
             throw new AuraHandledException('Error updating form status: ' + e.getMessage());
         }

@@ -1,0 +1,83 @@
+<template>
+    <section class="view" aria-labelledby="help-title">
+        <div class="view-head">
+            <div>
+                <span class="eyebrow">Help &amp; FAQ</span>
+                <h1 id="help-title">How to use Smart Forms &amp; Surveys (native)</h1>
+                <p class="muted">Step-by-step guides for everyday tasks, and answers to the questions people ask most.</p>
+            </div>
+            <label class="search help-search">
+                <c-smart-forms-icon name="search"></c-smart-forms-icon>
+                <input class="input" type="search" placeholder="Search guides and questions" aria-label="Search help" value={query} oninput={handleSearch} />
+            </label>
+        </div>
+
+        <div class="flow panel">
+            <div class="panel__head">
+                <h2>The whole process at a glance</h2>
+                <span class="muted small">From setup to submissions</span>
+            </div>
+            <ol class="flow__steps">
+                <template for:each={flowSteps} for:item="step">
+                    <li key={step.key}>
+                        <span class="flow__n">{step.number}</span>
+                        <b>{step.title}</b>
+                        <span class="flow__text">{step.text}</span>
+                    </li>
+                </template>
+            </ol>
+        </div>
+
+        <div>
+            <h2 class="section-title">Common tasks</h2>
+            <div class="tasks">
+                <template for:each={tasks} for:item="task">
+                    <article key={task.key} class="panel task">
+                        <div class="task__head">
+                            <span class="task__icon"><c-smart-forms-icon name={task.icon}></c-smart-forms-icon></span>
+                            <h3>{task.title}</h3>
+                        </div>
+                        <ol>
+                            <template for:each={task.steps} for:item="step">
+                                <li key={step.key}>
+                                    <template for:each={step.segments} for:item="s">
+                                        <template lwc:if={s.isBold}><b key={s.key}>{s.text}</b></template>
+                                        <template lwc:elseif={s.isMono}><span key={s.key} class="mono">{s.text}</span></template>
+                                        <template lwc:else><span key={s.key}>{s.text}</span></template>
+                                    </template>
+                                </li>
+                            </template>
+                        </ol>
+                        <button class="btn btn--sm" type="button" data-view={task.goView} onclick={handleGo}>{task.goLabel}</button>
+                    </article>
+                </template>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="section-title">Frequently asked questions</h2>
+            <div class="faq">
+                <template for:each={faq} for:item="item">
+                    <div key={item.key} class="faq__item">
+                        <template lwc:if={item.showGroup}><div class="faq__group">{item.group}</div></template>
+                        <details open={item.open}>
+                            <summary>{item.question}</summary>
+                            <div>
+                                <p>
+                                    <template for:each={item.segments} for:item="s">
+                                        <template lwc:if={s.isBold}><b key={s.key}>{s.text}</b></template>
+                                        <template lwc:elseif={s.isMono}><span key={s.key} class="mono">{s.text}</span></template>
+                                        <template lwc:else><span key={s.key}>{s.text}</span></template>
+                                    </template>
+                                </p>
+                            </div>
+                        </details>
+                    </div>
+                </template>
+            </div>
+            <template lwc:if={nothingFound}>
+                <p class="muted small nothing">Nothing matches your search. Try a shorter word, such as “link” or “error”.</p>
+            </template>
+        </div>
+    </section>
+</template>

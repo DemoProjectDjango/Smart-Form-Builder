@@ -1,0 +1,50 @@
+<template>
+    <section class="view" aria-labelledby="contact-title">
+        <div class="view-head">
+            <div>
+                <span class="eyebrow eyebrow--accent">Support &amp; inquiries</span>
+                <h1 id="contact-title">Contact Info</h1>
+                <p class="muted">Need technical assistance, custom feature requests, or consulting? Reach out directly using any channel below.</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel__body">
+                <div class="row company">
+                    <span class="eyebrow eyebrow--accent">Twinstack</span>
+                    <span class="chip chip--accent chip--pill">Direct Channels</span>
+                </div>
+                <div>
+                    <h2>Company &amp; Team Details</h2>
+                    <p class="muted small intro">Click copy to copy details to your clipboard, or click the action button to connect directly.</p>
+                </div>
+                <ul class="channels">
+                    <template for:each={channels} for:item="c">
+                        <li key={c.id} class="channel">
+                            <span class="channel__icon"><c-smart-forms-icon name={c.icon}></c-smart-forms-icon></span>
+                            <div class="channel__text">
+                                <span class="channel__label">{c.label}</span>
+                                <span class="channel__value">{c.value}</span>
+                            </div>
+                            <div class="channel__actions">
+                                <button class="iconbtn" type="button" data-id={c.id} aria-label={c.copyLabel} title="Copy" onclick={handleCopy}>
+                                    <c-smart-forms-icon name="copy"></c-smart-forms-icon>
+                                </button>
+                                <a class="iconbtn" href={c.href} target={c.target} rel={c.rel} aria-label={c.openLabel} title="Open">
+                                    <c-smart-forms-icon name="external"></c-smart-forms-icon>
+                                </a>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </div>
+
+        <div class="foot">
+            <span class="muted small">End of guide:</span>
+            <button class="btn btn--soft btn--sm" type="button" onclick={handleReturn}>
+                <c-smart-forms-icon name="chevronLeft"></c-smart-forms-icon>Return to Initial Setup Checklist
+            </button>
+        </div>
+    </section>
+</template>
