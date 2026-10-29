@@ -36,6 +36,16 @@ The **Smart Forms & Surveys (native)** app has one tab with a left sidebar and s
 
 Supported field types: text, email, phone, URL, number, currency, percent, picklist, multi-select picklist, date, date/time, checkbox and long text. A field can depend on one picklist or checkbox, with one or more answers that reveal it.
 
+**Lookup fields (Owner, Account, Campaign and so on)** are hidden from visitors by default, even when an admin adds them to a form, because visitors cannot know record Ids. In the field editor an admin can choose:
+
+| Mode | What visitors get |
+| --- | --- |
+| *(nothing chosen)* | The field is not on the published form. Salesforce applies its normal default (for example the owner). |
+| **Fixed record** | Nothing, or a read-only label if the admin allows it. The server always applies the chosen record. The label defaults to the record's name and can be edited. |
+| **Choose from selected records** | A dropdown of up to 25 records the admin selected, shown by name. The page carries opaque keys (`o1`, `o2`, ...), never Ids. |
+
+Lookups that Salesforce requires to create the record must be configured before the form can be saved.
+
 ## Package information
 
 | | |
@@ -44,26 +54,26 @@ Supported field types: text, email, phone, URL, number, currency, percent, pickl
 | Package type | Managed 2GP (second-generation) |
 | Namespace | `twinforce` |
 | Package Id | `0HoOW00000000Uf0AI` |
-| Latest version | **0.5.0.1** (Released) |
-| Subscriber package version Id | `04tOW00000Ld3JiYAJ` |
-| Ancestor (upgrade path from) | 0.4.0.2 (`04tOW00000JT15rYAD`, released) |
+| Latest version | **0.6.0.1** (Released) |
+| Subscriber package version Id | `04tOW00000Le0ZuYAJ` |
+| Ancestor of 0.5.0.1 / 0.6.0.1 | 0.4.0.2 / 0.5.0.1 |
 | Apex code coverage | 87% |
 | Source API version | 65.0 |
 | Dev Hub | `reviewdemo` |
 
-Install links for 0.5.0.1:
+Install links for 0.6.0.1:
 
-- Production / Developer Edition (also the link for new installs anywhere): `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000Ld3JiYAJ`
-- Sandbox / scratch org: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000Ld3JiYAJ`
+- Production / Developer Edition (also the link for new installs anywhere): `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000Le0ZuYAJ`
+- Sandbox / scratch org: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000Le0ZuYAJ`
 
-> 0.5.0.1 is a **released** version, so it can be installed in production as well as in sandboxes, scratch orgs and Developer Edition orgs. A released version is immutable; ship fixes as a new version.
+> 0.6.0.1 is a **released** version, so it can be installed in production as well as in sandboxes, scratch orgs and Developer Edition orgs. A released version is immutable; ship fixes as a new version.
 
 ## Installation
 
 Using the Salesforce CLI:
 
 ```sh
-sf package install --package 04tOW00000Ld3JiYAJ --target-org <your-org> --security-type AdminsOnly --wait 20
+sf package install --package 04tOW00000Le0ZuYAJ --target-org <your-org> --security-type AdminsOnly --wait 20
 ```
 
 Or open one of the install links above. After installation:
@@ -119,6 +129,7 @@ main/default
 | `smartFormsStart` / `smartFormsBuilder` / `smartFormsForms` / `smartFormsSubmissions` / `smartFormsHelp` / `smartFormsContact` | The six views. |
 | `smartFormsVisitor` | Interactive preview of the public form (rendered natively, no `innerHTML`). |
 | `smartFormsModel` | Pure logic: field and dependency rules, safe text helpers, and the generators for the public form's HTML, CSS and JS. |
+| `smartFormsLookupConfig` | Lookup field settings in the field drawer: fixed record or selected choices, with record search. |
 | `smartFormsShared`, `smartFormsIcon` | Shared styles (CSS module) and icons. |
 | `publicFormInstructionsModal` | The setup guide. |
 
@@ -129,7 +140,9 @@ The original `formConfigurator`, `formEditor`, `formPreviewer`, `publicFormConfi
 | Class | Role |
 | --- | --- |
 | `SmartFormsDataController` | Read-only data for Forms and Submissions (`with sharing`, `WITH USER_MODE`). |
-| `FormAuraController`, `FormEditorController`, `FormEditorMetadataService` | Save forms, load templates, object and field describe. |
+| `FormAuraController`, `FormEditorController`, `FormEditorMetadataService` | Save forms, load templates, object and field describe (including the objects a lookup points to). |
+| `FormFieldConfig` / `FormConfigValidator` | Parse the saved field configuration (the server-side allow-list) and validate lookup settings before a form is saved. |
+| `LookupRecordSearchController` | Admin-only record search for the lookup settings (`with sharing`, user mode, search text bound as a variable). |
 | `FormController` | Public page controller and the visitor submission endpoint. |
 | `FormSubmissionHandler` / `FormSubmissionProcessor` / `FormSubmissionTrigger` | Turn a submission into Salesforce records and record the result. |
 | `SiteNameCheckController`, `FormBuilderSettingsService` | Site readiness checks and the public link setting. |
@@ -141,6 +154,12 @@ The original `formConfigurator`, `formEditor`, `formPreviewer`, `publicFormConfi
 - Visitor submissions are written in user mode through a `with sharing` helper. Only one read (rendering a published form) uses `SYSTEM_MODE`, in a private `without sharing` inner class with a documented justification.
 - The guest user only needs one Apex class (`FormController`), one Visualforce page (`PublicForm`) and the **Form Builder Guest** permission set.
 - Visitor-supplied payloads are rendered as text only in the Submissions view.
+- **Allow-list:** the server writes only the fields saved in the form's configuration. Extra fields in a request are ignored.
+- **Create only:** public submissions can only create records. A request that carries a record Id is rejected and recorded as an error, so a form link can never overwrite existing data.
+- **Lookups never take visitor Ids:** a lookup is written only from the admin's fixed record or selected choices, mapped from opaque keys on the server. The target record's object is checked against the lookup's allowed objects.
+- **Failures are recorded, not thrown:** a record that Salesforce rejects is stored as the submission's error (visible in Submissions) instead of failing the trigger. Visitors see a generic message, never Salesforce internals.
+- **Honeypot:** published forms include an invisible field that simple bots fill in; such submissions are dropped.
+- Picklist answers must be one of the values saved with the form.
 - Never grant the guest user other Form Builder classes or `FormBuilder_Admin`.
 
 ## Development
@@ -165,7 +184,7 @@ sf org open --target-org sfb-scratch
 
 In the scratch org, open the **Smart Forms & Surveys (native)** app. The *Get started* tab shows "Setup required" until a Site named `PublicForm` exists; follow the setup guide.
 
-`sfdx-project.json` holds the package definition (`Smart Forms & Surveys`, namespace `twinforce`, version `0.5.0.NEXT`, ancestor `HIGHEST`). `.forceignore` excludes tests, `jsconfig.json`, and the Site-bound sharing rule from deploys and packaging.
+`sfdx-project.json` holds the package definition (`Smart Forms & Surveys`, namespace `twinforce`, version `0.6.0.NEXT`, ancestor `HIGHEST`). `.forceignore` excludes tests, `jsconfig.json`, and the Site-bound sharing rule from deploys and packaging.
 
 ## Testing and quality gates
 
@@ -181,7 +200,7 @@ sf code-analyzer run --workspace main --target main/default/classes --target mai
   --rule-selector Recommended --rule-selector Security --rule-selector AppExchange
 ```
 
-Current status (0.5.0.1): 72 Jest tests pass; 68 Apex tests pass with 87% overall coverage; Code Analyzer reports 0 security findings (`sfge`, `retire-js` and all high-severity rules). The remaining informational findings are `slds/no-hardcoded-values-slds2` style hints from the custom design and three code-complexity notes in older classes.
+Current status (0.6.0.1): 102 Jest tests pass; 101 Apex tests pass with 90% package coverage; Code Analyzer reports 0 security findings (`sfge`, `retire-js` and all high-severity rules). The remaining informational findings are `slds/no-hardcoded-values-slds2` style hints from the custom design and three code-complexity notes in older classes.
 
 ## Creating a package version
 
@@ -198,9 +217,16 @@ sf package version report --package <04t-id> --target-dev-hub reviewdemo
 sf package version promote --package <04t-id> --target-dev-hub reviewdemo
 ```
 
-Update `versionNumber` in `sfdx-project.json` (for example `0.6.0.NEXT`) before creating a new minor or major version. `ancestorVersion: HIGHEST` links each version to the highest released one so subscribers can upgrade.
+Update `versionNumber` in `sfdx-project.json` (for example `0.7.0.NEXT`) before creating a new minor or major version. `ancestorVersion: HIGHEST` links each version to the highest released one so subscribers can upgrade.
 
 ## Release notes
+
+### 0.6.0.1 (released, branch `feat/lookup`)
+
+- **Lookup fields are hidden from visitors by default.** Admins can configure each lookup as a fixed record (optionally shown by name) or as a dropdown of up to 25 selected records. Visitors never see or send record Ids.
+- **Fixes the "owner cannot be blank" failure:** a blank Owner (or any blank lookup) on a public form no longer rejects the record.
+- **Security hardening of public submissions:** field allow-list, create-only (record Ids in a submission are rejected), failures stored as errors instead of throwing out of the trigger, generic visitor messages, honeypot field, picklist value checks.
+- Behaviour change: forms published before this release with an Owner or other lookup field no longer pass visitor-typed values for it. Forms without a saved field configuration must be opened and saved once in the Form Builder.
 
 ### 0.5.0.1 (released)
 

@@ -6,6 +6,58 @@
 
 const CONTROLLING_TYPES = ['PICKLIST', 'MULTIPICKLIST', 'BOOLEAN'];
 
+export const MAX_CHOICES = 25;
+
+export function isLookupType(type) {
+    return String(type || '').toUpperCase() === 'REFERENCE';
+}
+
+/**
+ * Normalises a lookup setting: { mode: 'fixed', record: { id, label, showToVisitors } } or
+ * { mode: 'choices', choices: [{ key, id, label }] }. Anything else means "not configured".
+ */
+export function normalizeLookup(lookup) {
+    if (!lookup || typeof lookup !== 'object') return null;
+    if (lookup.mode === 'fixed') {
+        const r = lookup.record || {};
+        return { mode: 'fixed', record: { id: r.id || '', label: r.label || '', showToVisitors: !!r.showToVisitors } };
+    }
+    if (lookup.mode === 'choices') {
+        const choices = (Array.isArray(lookup.choices) ? lookup.choices : [])
+            .filter((c) => c && c.key && c.id)
+            .map((c) => ({ key: c.key, id: c.id, label: c.label || '' }));
+        return { mode: 'choices', choices };
+    }
+    return null;
+}
+
+/** True when the lookup is configured completely (a record chosen, or at least one choice). */
+export function isLookupComplete(field) {
+    const l = field && field.lookup;
+    if (!l) return false;
+    if (l.mode === 'fixed') return !!(l.record && l.record.id);
+    return l.mode === 'choices' && l.choices.length > 0 && l.choices.length <= MAX_CHOICES;
+}
+
+/**
+ * Whether visitors get anything for this field. Lookup fields are hidden until the admin configures
+ * them: a fixed record is shown only when allowed, selected choices become a dropdown.
+ */
+export function isVisitorField(field) {
+    if (!field) return false;
+    if (!isLookupType(field.type)) return true;
+    if (!isLookupComplete(field)) return false;
+    return field.lookup.mode === 'choices' || !!field.lookup.record.showToVisitors;
+}
+
+/** One-line description of a lookup field's state for the builder canvas. */
+export function lookupSummary(field) {
+    if (!isLookupComplete(field)) return 'Hidden from visitors';
+    const l = field.lookup;
+    if (l.mode === 'choices') return `Visitors choose from ${l.choices.length} record${l.choices.length === 1 ? '' : 's'}`;
+    return l.record.showToVisitors ? `Fixed record, shown to visitors: ${l.record.label}` : `Fixed record (hidden): ${l.record.label}`;
+}
+
 export function isControllingType(type) {
     return CONTROLLING_TYPES.includes(String(type || '').toUpperCase());
 }
@@ -110,6 +162,8 @@ export function parseFieldConfig(json) {
             required: !!f.required,
             placeholder: f.placeholder || '',
             picklistValues: Array.isArray(f.picklistValues) ? f.picklistValues : [],
+            referenceTo: Array.isArray(f.referenceTo) ? f.referenceTo : [],
+            lookup: normalizeLookup(f.lookup),
             dependency: f.dependency && f.dependency.controllingApi ? f.dependency : null
         }));
 }
@@ -157,6 +211,8 @@ export function buildFieldConfigJson(fields) {
             required: f.required,
             placeholder: f.placeholder,
             picklistValues: f.picklistValues,
+            referenceTo: f.referenceTo || [],
+            lookup: normalizeLookup(f.lookup),
             dependency: f.dependency
         }))
     );
@@ -177,8 +233,9 @@ export function buildDependencyJson(fields) {
 
 /** Builds the public form markup. Every interpolated value is HTML-escaped. */
 export function buildFormHtml(formName, fields) {
-    if (!fields || fields.length === 0) return '';
-    const rows = fields.map((f) => {
+    const visible = (fields || []).filter(isVisitorField);
+    if (visible.length === 0) return '';
+    const rows = visible.map((f) => {
         const api = escapeHtml(f.apiName);
         const id = `field-${api}`;
         const label = escapeHtml(f.label);
@@ -193,6 +250,16 @@ export function buildFormHtml(formName, fields) {
                 `<div class="field dependent-field" data-api-name="${api}"` +
                 ` data-controlling-field="${escapeHtml(f.dependency.controllingApi)}"` +
                 ` data-controlling-values="${escapeHtml(vals.join(','))}">`;
+        }
+        if (isLookupType(f.type)) {
+            // Lookups never expose record Ids: a fixed record is shown as plain text, choices carry an opaque key.
+            if (f.lookup.mode === 'fixed') {
+                return `${wrapper}<label>${label}</label><div class="readonly-value">${escapeHtml(f.lookup.record.label)}</div></div>`;
+            }
+            const choiceOptions = f.lookup.choices
+                .map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`)
+                .join('');
+            return `${wrapper}${labelHtml}<select id="${id}" class="control" data-api-name="${api}" ${requiredAttr}><option value="">--Select--</option>${choiceOptions}</select></div>`;
         }
         const options = (Array.isArray(f.picklistValues) ? f.picklistValues : [])
             .map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`)
@@ -218,7 +285,9 @@ export function buildFormHtml(formName, fields) {
         return `${wrapper}${labelHtml}<input type="text" id="${id}" class="control" data-api-name="${api}" ${requiredAttr} placeholder="${placeholder}" /></div>`;
     });
     // No inline handlers: the server-side sanitizer strips them; submit is bound by the generated JS.
-    return `<div class="form-card"><h3>${escapeHtml(formName)}</h3><form class="form-body">${rows.join('')}<button class="btn-primary" type="submit">Submit</button></form></div>`.trim();
+    // Honeypot: invisible to people, filled in by simple bots. The generated script drops such submissions.
+    const honeypot = '<div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="hp_website" tabindex="-1" autocomplete="off" /></label></div>';
+    return `<div class="form-card"><h3>${escapeHtml(formName)}</h3><form class="form-body">${rows.join('')}${honeypot}<button class="btn-primary" type="submit">Submit</button></form></div>`.trim();
 }
 
 
@@ -307,6 +376,9 @@ export function buildFormJs(fields) {
         "",
         "   var formCard=document.querySelector('.form-card');",
         "   if(!formCard){ alert('Form container not found'); return; }",
+        "",
+        "   var hp=formCard.querySelector('input[name=\"hp_website\"]');",
+        "   if(hp&&hp.value){ alert('Thank you! Submission received.'); return; }",
         "",
         "   var elements=formCard.querySelectorAll('input[data-api-name],select[data-api-name],textarea[data-api-name]');",
         "   var payload={};",

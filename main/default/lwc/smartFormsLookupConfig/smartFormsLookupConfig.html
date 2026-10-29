@@ -1,0 +1,115 @@
+<template>
+    <div class="lk">
+        <div class="criteria__title">Visitors and “{fieldLabel}”</div>
+        <p class="small muted">
+            Visitors never see or send record Ids. Until you choose an option below, this field is hidden from the published form.
+        </p>
+
+        <div class="seg lk__modes" role="group" aria-label="How visitors get this field">
+            <button type="button" data-mode="fixed" aria-pressed={fixedPressed} onclick={handleMode}>Fixed record</button>
+            <button type="button" data-mode="choices" aria-pressed={choicesPressed} onclick={handleMode}>Choose from selected records</button>
+        </div>
+
+        <template lwc:if={hasMode}>
+            <template lwc:if={isFixed}>
+                <p class="small muted">The record you pick is always applied to the new record. Visitors are not asked.</p>
+            </template>
+            <template lwc:else>
+                <p class="small muted">Visitors pick one of the records you select. Pick up to {maxChoices}.</p>
+            </template>
+
+            <div class="lk__search">
+                <template lwc:if={hasSeveralTargets}>
+                    <select class="select" aria-label="Object to search" onchange={handleObject}>
+                        <template for:each={targets} for:item="t">
+                            <option key={t.key} value={t.value} selected={t.selected}>{t.label}</option>
+                        </template>
+                    </select>
+                </template>
+                <div class="lk__row">
+                    <input
+                        class="input"
+                        type="search"
+                        maxlength="80"
+                        placeholder="Search records by name"
+                        aria-label="Search records by name"
+                        value={searchTerm}
+                        oninput={handleTerm}
+                        onkeydown={handleTermKey} />
+                    <button class="btn btn--sm" type="button" disabled={searchDisabled} onclick={handleSearch}>Search</button>
+                </div>
+            </div>
+
+            <template lwc:if={errorText}>
+                <div class="note note--bad" role="alert"><p>{errorText}</p></div>
+            </template>
+            <template lwc:if={noResults}>
+                <p class="small muted">No records found.</p>
+            </template>
+            <template lwc:if={hasResults}>
+                <ul class="lk__results" aria-label="Search results">
+                    <template for:each={resultRows} for:item="r">
+                        <li key={r.key}>
+                            <span class="lk__name">{r.name}</span>
+                            <button class="btn btn--sm" type="button" data-id={r.id} data-name={r.name} disabled={r.disabled} onclick={handlePick}>{r.actionLabel}</button>
+                        </li>
+                    </template>
+                </ul>
+            </template>
+
+            <template lwc:if={isFixed}>
+                <template lwc:if={hasRecord}>
+                    <div class="lk__selected">
+                        <span class="eyebrow">Selected record</span>
+                        <label class="switch">
+                            <input type="checkbox" checked={showToVisitors} onchange={handleShowToggle} />Show it to visitors
+                        </label>
+                        <template lwc:if={showToVisitors}>
+                            <div class="field">
+                                <label for="lk-label">Text visitors see</label>
+                                <input class="input" id="lk-label" type="text" maxlength="255" value={record.label} oninput={handleFixedLabel} />
+                                <span class="hint">Defaults to the record's name. Visitors can read this text, so avoid anything private.</span>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <p class="small muted">Hidden: visitors don't see this field at all.</p>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <p class="small muted">Search above and choose the record to use.</p>
+                </template>
+            </template>
+
+            <template lwc:if={isChoices}>
+                <div class="lk__selected">
+                    <span class="eyebrow">{choiceCountText}</span>
+                    <template lwc:if={hasChoices}>
+                        <ul class="lk__choices">
+                            <template for:each={choices} for:item="c">
+                                <li key={c.key}>
+                                    <input class="input" type="text" maxlength="255" value={c.label} data-key={c.key} aria-label={c.labelAria} oninput={handleChoiceLabel} />
+                                    <button class="iconbtn iconbtn--danger" type="button" data-key={c.key} aria-label={c.removeAria} onclick={handleRemoveChoice}>
+                                        <c-smart-forms-icon name="close"></c-smart-forms-icon>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                        <div class="note note--warn">
+                            <c-smart-forms-icon name="warn"></c-smart-forms-icon>
+                            <p>Visitors can read these names. Only add records whose names are fine to show publicly.</p>
+                        </div>
+                    </template>
+                    <template lwc:else>
+                        <p class="small muted">Search above and add at least one record.</p>
+                    </template>
+                    <template lwc:if={limitReached}>
+                        <p class="small muted">Limit reached. Remove a record to add another.</p>
+                    </template>
+                </div>
+            </template>
+
+            <button class="btn btn--ghost btn--sm lk__clear" type="button" onclick={handleClear}>Clear and hide this field again</button>
+        </template>
+    </div>
+</template>

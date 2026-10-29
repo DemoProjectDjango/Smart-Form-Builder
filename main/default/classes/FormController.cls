@@ -78,10 +78,9 @@ public with sharing class FormController {
             );
             new GuestSubmissionWriter().insertSubmission(submission);
             return 'Success! Submission saved.';
-        } catch (DmlException e) {
-            return 'Submission error: ' + e.getDmlMessage(0);
         } catch (Exception e) {
-            return 'Submission error: ' + e.getMessage();
+            // Details stay server-side; visitors never see Salesforce internals.
+            return 'We could not save your submission. Please try again later.';
         }
     }
 

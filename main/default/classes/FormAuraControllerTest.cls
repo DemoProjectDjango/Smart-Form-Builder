@@ -250,4 +250,48 @@ private class FormAuraControllerTest {
             'A duplicate name should create a new record, not update the existing one.'
         );
     }
+
+    @IsTest
+    static void testInvalidLookupConfigurationIsRejected() {
+        User u = getFormBuilderUser();
+        String badConfig = '[{"apiName":"ParentId","type":"REFERENCE","referenceTo":["Account"],'
+            + '"lookup":{"mode":"fixed"}}]';
+        String reqJson = JSON.serialize(new Map<String, Object>{
+            'name' => 'Bad Lookup', 'objectApiName' => 'Account', 'fieldConfigJson' => badConfig
+        });
+
+        String message;
+        System.runAs(u) {
+            try {
+                FormAuraController.saveFormTemplate(reqJson);
+            } catch (AuraHandledException e) {
+                message = e.getMessage();
+            }
+        }
+
+        System.assertNotEquals(null, message, 'An invalid lookup configuration must not be saved.');
+        System.assert(message.contains('ParentId'), 'The message names the field: ' + message);
+        System.assertEquals(0, [SELECT COUNT() FROM Form__c WHERE Name = 'Bad Lookup']);
+    }
+
+    @IsTest
+    static void testValidLookupConfigurationIsSaved() {
+        User u = getFormBuilderUser();
+        Account parent = new Account(Name = 'Config Parent');
+        insert parent;
+        String config = '[{"apiName":"Name","type":"STRING"},{"apiName":"ParentId","type":"REFERENCE",'
+            + '"referenceTo":["Account"],"lookup":{"mode":"fixed","record":{"id":"' + parent.Id + '","label":"Config Parent"}}}]';
+        String reqJson = JSON.serialize(new Map<String, Object>{
+            'name' => 'Good Lookup', 'objectApiName' => 'Account', 'fieldConfigJson' => config
+        });
+
+        String stored;
+        System.runAs(u) {
+            Id formId = FormAuraController.saveFormTemplate(reqJson);
+            // Read as the permitted user: the package build org grants field access only through FormBuilder_Admin.
+            stored = [SELECT Field_Config__c FROM Form__c WHERE Id = :formId WITH USER_MODE].Field_Config__c;
+        }
+
+        System.assertEquals(config, stored);
+    }
 }

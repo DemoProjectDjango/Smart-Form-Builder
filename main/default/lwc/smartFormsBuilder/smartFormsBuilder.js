@@ -11,7 +11,11 @@ import {
     buildFormJs,
     controllingAnswers,
     isControllingType,
+    isLookupComplete,
+    isLookupType,
+    isVisitorField,
     joinOr,
+    lookupSummary,
     normalizeError,
     parseFieldConfig
 } from 'c/smartFormsModel';
@@ -24,6 +28,8 @@ const toField = (d) => ({
     type: String(d.type || 'STRING').toUpperCase(),
     required: !!d.required,
     picklistValues: d.picklistValues || [],
+    referenceTo: d.referenceTo || [],
+    lookup: null,
     placeholder: '',
     dependency: null
 });
@@ -212,6 +218,9 @@ export default class SmartFormsBuilder extends LightningElement {
                 label: f.label,
                 required: f.required,
                 type: f.type,
+                isLookup: isLookupType(f.type),
+                lookupBadge: isVisitorField(f) ? 'Lookup' : 'Hidden from visitors',
+                lookupBadgeClass: isVisitorField(f) ? 'chip' : 'chip chip--hidden',
                 rowClass: 'frow',
                 selected: String(f.apiName === this.selectedApi),
                 hasDependency: !!f.dependency,
@@ -231,6 +240,7 @@ export default class SmartFormsBuilder extends LightningElement {
     ghostFor(f) {
         const values = (f.picklistValues || []).map((p) => p.label);
         const base = { isArea: false, isCheck: false, isInput: false, text: '' };
+        if (isLookupType(f.type)) return { ...base, isInput: true, text: lookupSummary(f) };
         switch (f.type) {
             case 'TEXTAREA':
                 return { ...base, isArea: true, text: f.placeholder || 'Long text' };
@@ -265,6 +275,31 @@ export default class SmartFormsBuilder extends LightningElement {
 
     get draftDependentChecked() {
         return !!(this.draft && this.draft.isDependent);
+    }
+
+    get draftIsLookup() {
+        return !!this.draft && isLookupType(this.draft.type);
+    }
+
+    get draftLookup() {
+        return this.draft ? this.draft.lookup : null;
+    }
+
+    get draftReferenceTo() {
+        return this.draft ? this.draft.referenceTo || [] : [];
+    }
+
+    get showPlaceholder() {
+        return !this.draftIsLookup;
+    }
+
+    get showDependency() {
+        return !this.draftIsLookup;
+    }
+
+    /** A lookup can only be required when visitors choose from a list. */
+    get showRequiredSwitch() {
+        return !this.draftIsLookup || (!!this.draft.lookup && this.draft.lookup.mode === 'choices');
     }
 
     get controllerOptions() {
@@ -470,6 +505,15 @@ export default class SmartFormsBuilder extends LightningElement {
             this.notify('Select at least one field.', 'error');
             return;
         }
+        const lookupProblem = this.lookupProblem();
+        if (lookupProblem) {
+            this.notify(lookupProblem, 'error');
+            return;
+        }
+        if (!this.fields.some(isVisitorField)) {
+            this.notify('Add at least one field visitors can fill in. Lookup fields stay hidden until you configure them.', 'error');
+            return;
+        }
         this.isSaving = true;
         try {
             const payload = {
@@ -498,6 +542,21 @@ export default class SmartFormsBuilder extends LightningElement {
         }
     }
 
+    /** First problem with a lookup field's settings, or ''. */
+    lookupProblem() {
+        for (const f of this.fields) {
+            if (!isLookupType(f.type)) continue;
+            if (f.lookup && !isLookupComplete(f)) {
+                return `Finish the lookup settings for \u201c${f.label}\u201d, or clear them.`;
+            }
+            const createRequired = this.available.some((a) => a.apiName === f.apiName && a.required);
+            if (createRequired && !isLookupComplete(f)) {
+                return `\u201c${f.label}\u201d is required by Salesforce but hidden from visitors. Choose a fixed record or selected records for it.`;
+            }
+        }
+        return '';
+    }
+
     handleGoStart() {
         this.dispatchEvent(new CustomEvent('gostart'));
     }
@@ -512,6 +571,7 @@ export default class SmartFormsBuilder extends LightningElement {
         this.selectedApi = api;
         this.draft = {
             ...field,
+            lookup: field.lookup ? JSON.parse(JSON.stringify(field.lookup)) : null,
             isDependent: !!(field.dependency && field.dependency.controllingApi),
             dependency: field.dependency
                 ? { controllingApi: field.dependency.controllingApi, controllingValues: [...(field.dependency.controllingValues || [])] }
@@ -573,6 +633,11 @@ export default class SmartFormsBuilder extends LightningElement {
         this.draft = { ...this.draft, required: event.target.checked };
     }
 
+    handleLookupChange(event) {
+        const lookup = event.detail.lookup;
+        this.draft = { ...this.draft, lookup, required: lookup && lookup.mode === 'choices' ? this.draft.required : false };
+    }
+
     handleDraftDependent(event) {
         const on = event.target.checked;
         let dependency = this.draft.dependency;
@@ -613,6 +678,10 @@ export default class SmartFormsBuilder extends LightningElement {
 
     handleDrawerSave() {
         const d = this.draft;
+        if (isLookupType(d.type) && d.lookup && !isLookupComplete(d)) {
+            this.notify('Finish the lookup settings (choose a record, or at least one record), or clear them to hide the field.', 'error');
+            return;
+        }
         if (d.isDependent && (!d.dependency.controllingApi || !d.dependency.controllingValues.length)) {
             this.notify('Finish the criteria, or turn off \u201cOnly show this field for certain answers\u201d', 'error');
             return;
@@ -625,7 +694,8 @@ export default class SmartFormsBuilder extends LightningElement {
                       label,
                       placeholder: d.placeholder || '',
                       required: d.required,
-                      dependency: d.isDependent ? d.dependency : null
+                      lookup: isLookupType(f.type) ? d.lookup : null,
+                      dependency: d.isDependent && !isLookupType(f.type) ? d.dependency : null
                   }
                 : f
         );

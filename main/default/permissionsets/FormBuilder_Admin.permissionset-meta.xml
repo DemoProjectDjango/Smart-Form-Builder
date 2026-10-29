@@ -40,6 +40,10 @@
         <apexClass>SmartFormsDataController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>LookupRecordSearchController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <description>&quot;Access to build, edit, preview and manage forms + view submissions&quot;</description>
     <fieldPermissions>
         <editable>true</editable>

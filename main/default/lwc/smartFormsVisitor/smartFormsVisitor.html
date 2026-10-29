@@ -24,6 +24,10 @@
                                             {row.label}
                                         </label>
                                     </template>
+                                    <template lwc:elseif={row.isReadonly}>
+                                        <label>{row.label}</label>
+                                        <div class="vf-readonly">{row.readonlyText}</div>
+                                    </template>
                                     <template lwc:else>
                                         <label for={row.inputId}>
                                             {row.label}<template lwc:if={row.required}><span class="r">*</span></template>

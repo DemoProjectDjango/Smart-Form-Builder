@@ -1,5 +1,5 @@
 import { LightningElement, api } from 'lwc';
-import { isFieldShown } from 'c/smartFormsModel';
+import { isFieldShown, isLookupType, isVisitorField } from 'c/smartFormsModel';
 
 /**
  * Interactive preview of the public form page (dark glass card inside a browser frame).
@@ -37,14 +37,17 @@ export default class SmartFormsVisitor extends LightningElement {
     }
 
     get hasFields() {
-        return this._fields.length > 0;
+        return this._fields.some(isVisitorField);
     }
 
     get rows() {
         return this._fields
-            .filter((f) => isFieldShown(f, this.values))
+            .filter((f) => isVisitorField(f) && isFieldShown(f, this.values))
             .map((f) => {
                 const type = String(f.type || 'STRING').toUpperCase();
+                const lookup = isLookupType(type) ? f.lookup : null;
+                const fixed = !!lookup && lookup.mode === 'fixed';
+                const choices = !!lookup && lookup.mode === 'choices';
                 return {
                     key: f.apiName,
                     apiName: f.apiName,
@@ -53,18 +56,22 @@ export default class SmartFormsVisitor extends LightningElement {
                     placeholder: f.placeholder || '',
                     inputId: `vf-${f.apiName}`,
                     wrapClass: this.invalid[f.apiName] ? 'vf-field invalid' : 'vf-field',
+                    isReadonly: fixed,
+                    readonlyText: fixed ? lookup.record.label : '',
                     isBoolean: type === 'BOOLEAN',
-                    isPicklist: type === 'PICKLIST',
+                    isPicklist: type === 'PICKLIST' || choices,
                     isMulti: type === 'MULTIPICKLIST',
                     isTextarea: type === 'TEXTAREA',
                     isDate: type === 'DATE',
                     isDatetime: type === 'DATETIME',
-                    isText: !['BOOLEAN', 'PICKLIST', 'MULTIPICKLIST', 'TEXTAREA', 'DATE', 'DATETIME'].includes(type),
-                    options: (f.picklistValues || []).map((p) => ({
-                        key: `${f.apiName}-${p.value}`,
-                        value: p.value,
-                        label: p.label
-                    }))
+                    isText: !lookup && !['BOOLEAN', 'PICKLIST', 'MULTIPICKLIST', 'TEXTAREA', 'DATE', 'DATETIME'].includes(type),
+                    options: choices
+                        ? lookup.choices.map((c) => ({ key: `${f.apiName}-${c.key}`, value: c.key, label: c.label }))
+                        : (f.picklistValues || []).map((p) => ({
+                              key: `${f.apiName}-${p.value}`,
+                              value: p.value,
+                              label: p.label
+                          }))
                 };
             });
     }

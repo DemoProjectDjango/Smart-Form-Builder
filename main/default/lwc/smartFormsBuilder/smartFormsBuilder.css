@@ -179,6 +179,11 @@
     cursor: pointer;
 }
 
+.chip--hidden {
+    background: var(--warn-soft);
+    color: var(--warn);
+}
+
 .ghost-input {
     border: 1px dashed var(--line);
     border-radius: 7px;

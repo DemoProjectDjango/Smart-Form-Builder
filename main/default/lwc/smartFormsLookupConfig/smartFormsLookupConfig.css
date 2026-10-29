@@ -1,0 +1,79 @@
+@import 'c/smartFormsShared';
+
+.lk {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+}
+
+.criteria__title {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.lk__modes {
+    justify-self: start;
+    flex-wrap: wrap;
+}
+
+.lk__search {
+    display: grid;
+    gap: 8px;
+}
+
+.lk__row {
+    display: flex;
+    gap: 8px;
+}
+
+.lk__row .input {
+    flex: 1;
+}
+
+.lk__results,
+.lk__choices {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.lk__results li,
+.lk__choices li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border-top: 1px solid var(--line);
+}
+
+.lk__results li:first-child,
+.lk__choices li:first-child {
+    border-top: 0;
+}
+
+.lk__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lk__selected {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--surface-2);
+}
+
+.lk__clear {
+    justify-self: start;
+    padding-inline: 0;
+}

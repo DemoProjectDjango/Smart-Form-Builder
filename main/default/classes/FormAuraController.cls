@@ -55,6 +55,12 @@ public with sharing class FormAuraController {
     private static void validateRequest(FormTemplateRequest req) {
         if (req == null) { throw new AuraHandledException('Request payload is missing.'); }
         if (String.isBlank(req.name)) { throw new AuraHandledException('Form name is required.'); }
+        String configError = FormConfigValidator.validate(req.fieldConfigJson);
+        if (configError != null) {
+            AuraHandledException ex = new AuraHandledException(configError);
+            ex.setMessage(configError);
+            throw ex;
+        }
     }
 
     private static void ensureUpdatePermissions() {
