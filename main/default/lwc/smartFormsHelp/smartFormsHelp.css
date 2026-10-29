@@ -1,0 +1,160 @@
+@import 'c/smartFormsShared';
+
+.help-search {
+    flex: 1 1 300px;
+    max-width: 380px;
+}
+
+.section-title {
+    margin-bottom: 12px;
+}
+
+.nothing {
+    margin-top: 8px;
+}
+
+.flow__steps {
+    list-style: none;
+    margin: 0;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.flow__steps li {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+}
+
+.flow__text {
+    font-size: 0.84rem;
+    color: var(--ink-soft);
+}
+
+.flow__n {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    font-family: var(--font-display);
+    margin-bottom: 4px;
+}
+
+.tasks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+    gap: 14px;
+}
+
+.task {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 12px;
+    padding: 18px;
+}
+
+.task__head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.task__icon {
+    --sf-icon-size: 18px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.task ol {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 6px;
+    font-size: 0.92rem;
+    align-content: start;
+}
+
+.task .btn {
+    justify-self: start;
+}
+
+.faq {
+    display: grid;
+    gap: 8px;
+}
+
+.faq__group {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 10px 0 8px;
+}
+
+.faq details {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+}
+
+.faq summary {
+    padding: 14px 18px;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.faq summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq summary::after {
+    content: "+";
+    font-size: 1.2rem;
+    line-height: 1;
+    color: var(--accent);
+}
+
+.faq details[open] summary::after {
+    content: "−";
+}
+
+.faq details > div {
+    padding: 0 18px 16px;
+    color: var(--ink-soft);
+    max-width: 75ch;
+    display: grid;
+    gap: 8px;
+}
+
+@media (max-width: 900px) {
+    .flow__steps {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .flow__steps li {
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 12px;
+    }
+
+    .flow__steps li .flow__n {
+        grid-row: span 2;
+        margin: 0;
+    }
+}

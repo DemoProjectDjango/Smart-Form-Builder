@@ -1,0 +1,313 @@
+<template>
+    <template lwc:if={hasNoRequest}>
+        <section class="view">
+            <div class="panel">
+                <div class="panel__body empty-builder">
+                    <h2>No form is open</h2>
+                    <p class="muted">Pick what your form should create on the Get started tab, then come back to add fields.</p>
+                    <div class="row">
+                        <button class="btn btn--primary" type="button" onclick={handleGoStart}>Go to Get started</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </template>
+    <template lwc:else>
+        <section class="view" aria-label="Form builder">
+            <div class="panel buildbar">
+                <div class="buildbar__name">
+                    <span class="eyebrow">Form Builder · Step 2 of 2</span>
+                    <input data-id="name" type="text" maxlength="80" aria-label="Form name" value={name} oninput={handleName} />
+                </div>
+                <div class="buildbar__meta">
+                    <span class="chip chip--accent">{objectChip}</span>
+                    <span class="chip">{versionChip}</span>
+                </div>
+                <div class="seg" role="group" aria-label="View">
+                    <button type="button" aria-pressed={editPressed} data-view="edit" onclick={handleView}>Edit</button>
+                    <button type="button" aria-pressed={visitorPressed} data-view="visitor" onclick={handleView}>Visitor view</button>
+                </div>
+                <button class="btn btn--primary" type="button" disabled={saveDisabled} onclick={handleSave}>
+                    <c-smart-forms-icon name="save"></c-smart-forms-icon>Save &amp; generate form
+                </button>
+            </div>
+
+            <template lwc:if={isEditView}>
+                <div class="workspace">
+                    <aside class="panel picker" aria-label="Fields">
+                        <div class="panel__head">
+                            <h2>Fields</h2>
+                            <span class="muted small">{pickedCount}</span>
+                        </div>
+                        <div class="picker__tools">
+                            <label class="search">
+                                <c-smart-forms-icon name="search"></c-smart-forms-icon>
+                                <input
+                                    class="input"
+                                    type="search"
+                                    placeholder="Search by name or label"
+                                    aria-label="Search fields"
+                                    value={search}
+                                    oninput={handleSearch} />
+                            </label>
+                            <div class="row">
+                                <button class="btn btn--sm" type="button" onclick={handleSelectAll}>Select all</button>
+                                <button class="btn btn--sm" type="button" onclick={handleDeselectAll}>Deselect all</button>
+                            </div>
+                        </div>
+                        <ul class="picker__list">
+                            <template lwc:if={hasPickerRows}>
+                                <template for:each={pickerRows} for:item="row">
+                                    <li key={row.key}>
+                                        <label>
+                                            <input type="checkbox" data-pick={row.apiName} checked={row.checked} onchange={handlePick} />
+                                            <span class="grow">
+                                                {row.label}<template lwc:if={row.required}> <span class="req" title="Required to create a record">*</span></template>
+                                            </span>
+                                            <span class="chip">{row.type}</span>
+                                        </label>
+                                    </li>
+                                </template>
+                            </template>
+                            <template lwc:else>
+                                <li class="empty">{pickerEmptyText}</li>
+                            </template>
+                        </ul>
+                    </aside>
+
+                    <div class="panel">
+                        <div class="panel__head">
+                            <div>
+                                <h2>{canvasTitle}</h2>
+                                <span class="muted small">Your form, top to bottom. Use the arrows to reorder.</span>
+                            </div>
+                        </div>
+                        <div class="panel__body">
+                            <ol class="canvas">
+                                <template lwc:if={hasFields}>
+                                    <template for:each={canvasRows} for:item="row">
+                                        <li key={row.key} class={row.rowClass} data-selected={row.selected}>
+                                            <span class="frow__grip">{row.number}</span>
+                                            <div class="frow__main">
+                                                <div class="frow__label">
+                                                    {row.label}<template lwc:if={row.required}> <span class="star">*</span></template>
+                                                    <span class="chip">{row.type}</span>
+                                                    <template lwc:if={row.hasDependency}>
+                                                        <button
+                                                            type="button"
+                                                            class="frow__dep"
+                                                            title={row.editDependencyTitle}
+                                                            data-api={row.apiName}
+                                                            onclick={handleEdit}>
+                                                            <c-smart-forms-icon name="branch"></c-smart-forms-icon>{row.dependencyText}
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                                <template lwc:if={row.ghost.isArea}>
+                                                    <div class="ghost-input ghost-input--area">{row.ghost.text}</div>
+                                                </template>
+                                                <template lwc:elseif={row.ghost.isCheck}>
+                                                    <div class="ghost-check"><i></i>{row.ghost.text}</div>
+                                                </template>
+                                                <template lwc:else>
+                                                    <div class="ghost-input">{row.ghost.text}</div>
+                                                </template>
+                                            </div>
+                                            <div class="frow__tools">
+                                                <button class="iconbtn" type="button" aria-label="Move up" data-index={row.index} data-delta="-1" disabled={row.disableUp} onclick={handleMove}>
+                                                    <c-smart-forms-icon name="up"></c-smart-forms-icon>
+                                                </button>
+                                                <button class="iconbtn" type="button" aria-label="Move down" data-index={row.index} data-delta="1" disabled={row.disableDown} onclick={handleMove}>
+                                                    <c-smart-forms-icon name="down"></c-smart-forms-icon>
+                                                </button>
+                                                <button class="iconbtn" type="button" aria-label={row.editLabel} data-edit-btn="true" data-api={row.apiName} onclick={handleEdit}>
+                                                    <c-smart-forms-icon name="edit"></c-smart-forms-icon>
+                                                </button>
+                                                <button class="iconbtn iconbtn--danger" type="button" aria-label={row.deleteLabel} data-api={row.apiName} onclick={handleDelete}>
+                                                    <c-smart-forms-icon name="trash"></c-smart-forms-icon>
+                                                </button>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </template>
+                                <template lwc:else>
+                                    <li class="empty empty--dashed">
+                                        <template lwc:if={isLoading}>Loading fields…</template>
+                                        <template lwc:else>No fields selected yet. Tick fields on the left to add them.</template>
+                                    </li>
+                                </template>
+                            </ol>
+                            <div class="canvas-foot">
+                                <template lwc:if={dirty}>
+                                    <span class="dirty">Changes not applied yet</span>
+                                </template>
+                                <template lwc:else><span></span></template>
+                                <button class="btn" type="button" onclick={handleApply}>Apply changes</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <template lwc:if={isVisitorView}>
+                <div>
+                    <div class="note note--info visitor-note">
+                        <c-smart-forms-icon name="info"></c-smart-forms-icon>
+                        <p>This is how visitors see the form. Try it: required fields are checked, and dependent fields appear when their controlling value is chosen.</p>
+                    </div>
+                    <c-smart-forms-visitor form-name={name} fields={fields} url={visitorUrl}></c-smart-forms-visitor>
+                </div>
+            </template>
+        </section>
+
+        <!-- Edit field drawer -->
+        <template lwc:if={drawerOpen}>
+            <div class="drawer-scrim" onclick={handleCloseDrawer}></div>
+            <aside
+                class="drawer"
+                data-id="drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="d-title"
+                onkeydown={handleDrawerKeydown}>
+                <div class="drawer__head">
+                    <div>
+                        <span class="eyebrow">{draftTypeLine}</span>
+                        <h2 id="d-title">{draftTitle}</h2>
+                    </div>
+                    <button class="iconbtn" type="button" aria-label="Close" onclick={handleCloseDrawer}>
+                        <c-smart-forms-icon name="close"></c-smart-forms-icon>
+                    </button>
+                </div>
+
+                <div class="drawer__body">
+                    <div class="field">
+                        <label for="d-label">Field label</label>
+                        <input class="input" id="d-label" data-id="d-label" type="text" maxlength="255" value={draft.label} oninput={handleDraftLabel} />
+                        <span class="hint">The question visitors see.</span>
+                    </div>
+                    <div class="field">
+                        <label for="d-ph">Placeholder text</label>
+                        <input class="input" id="d-ph" type="text" maxlength="255" value={draft.placeholder} placeholder="Shown inside the empty box" oninput={handleDraftPlaceholder} />
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked={draft.required} onchange={handleDraftRequired} />Make this field required
+                    </label>
+
+                    <div class="depbox">
+                        <label class="switch">
+                            <input type="checkbox" checked={draftDependentChecked} onchange={handleDraftDependent} />Only show this field for certain answers
+                        </label>
+
+                        <template lwc:if={showCriteria}>
+                            <template lwc:if={showAddController}>
+                                <div class="criteria">
+                                    <div class="criteria__title">First, add a question to depend on</div>
+                                    <p class="small muted">A field can only depend on a picklist or checkbox that is already on this form. Add one:</p>
+                                    <template lwc:if={hasAddableControllers}>
+                                        <ul class="addctrl">
+                                            <template for:each={addableControllers} for:item="c">
+                                                <li key={c.key}>
+                                                    <span>{c.label} <span class="chip">{c.type}</span></span>
+                                                    <button class="btn btn--sm" type="button" data-api={c.apiName} onclick={handleAddController}>Add to form</button>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <template lwc:else>
+                                        <p class="small muted">This object has no picklist or checkbox fields available.</p>
+                                    </template>
+                                </div>
+                            </template>
+                            <template lwc:if={showControllerPicker}>
+                                <div class="criteria">
+                                    <div class="criteria__title">{criteriaTitle}</div>
+                                    <div class="crit-step">
+                                        <span class="crit-step__label"><span class="n">1</span>Which question controls it?</span>
+                                        <div class="rule">
+                                            <select class="select" aria-label="Controlling question" onchange={handleDraftController}>
+                                                <option value="">Choose a question</option>
+                                                <template for:each={ctrlSelectOptions} for:item="o">
+                                                    <option key={o.key} value={o.value} selected={o.selected}>{o.label}</option>
+                                                </template>
+                                            </select>
+                                            <span class="rule__op">is any of</span>
+                                        </div>
+                                    </div>
+                                    <div class="crit-step">
+                                        <span class="crit-step__label"><span class="n">2</span>Which answers show it?</span>
+                                        <template lwc:if={hasDraftController}>
+                                            <div class="answer-chips" role="group" aria-label="Answers that show this field">
+                                                <template for:each={answerChips} for:item="chip">
+                                                    <button key={chip.key} type="button" data-value={chip.value} aria-pressed={chip.pressed} onclick={handleChip}>
+                                                        <template lwc:if={chip.on}><c-smart-forms-icon name="check"></c-smart-forms-icon></template>{chip.label}
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template lwc:else>
+                                            <p class="small muted">Pick a question in step 1 to see its answers.</p>
+                                        </template>
+                                    </div>
+                                    <template lwc:if={criteriaComplete}>
+                                        <div class="summary summary--ok">
+                                            <c-smart-forms-icon name="ok"></c-smart-forms-icon>
+                                            <p>
+                                                <template for:each={summarySegments} for:item="s">
+                                                    <template lwc:if={s.isBold}><b key={s.key}>{s.text}</b></template>
+                                                    <template lwc:else><span key={s.key}>{s.text}</span></template>
+                                                </template>
+                                            </p>
+                                        </div>
+                                        <div class="tryit">
+                                            <span class="eyebrow">Try it</span>
+                                            <div class="tryit__row">
+                                                <label class="small" for="d-try">If a visitor answers</label>
+                                                <select class="select" id="d-try" onchange={handleTry}>
+                                                    <option value="">(no answer yet)</option>
+                                                    <template for:each={tryOptions} for:item="o">
+                                                        <option key={o.key} value={o.value} selected={o.selected}>{o.label}</option>
+                                                    </template>
+                                                </select>
+                                            </div>
+                                            <p class="small">
+                                                {tryLabel}
+                                                <template lwc:if={tryShown}><span class="pill pill--ok">Shown</span></template>
+                                                <template lwc:else><span class="pill pill--off">Hidden</span></template>
+                                            </p>
+                                        </div>
+                                    </template>
+                                    <template lwc:else>
+                                        <div class="summary summary--warn">
+                                            <c-smart-forms-icon name="warn"></c-smart-forms-icon>
+                                            <p>{summaryWarning}</p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <p class="small muted">Turn this on to hide the question until a related answer is chosen. Example: show “Annual Revenue” only when Rating is Hot or Warm.</p>
+                        </template>
+                    </div>
+
+                    <template lwc:if={hasDependents}>
+                        <div class="dependents">
+                            <span class="eyebrow">Fields that depend on this one</span>
+                            <ul>
+                                <template for:each={dependents} for:item="d">
+                                    <li key={d.key}><b>{d.label}</b>: shown when {d.text}</li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="drawer__foot">
+                    <button class="btn" type="button" onclick={handleCloseDrawer}>Cancel</button>
+                    <button class="btn btn--primary" type="button" onclick={handleDrawerSave}>Save changes</button>
+                </div>
+            </aside>
+        </template>
+    </template>
+</template>

@@ -1,0 +1,88 @@
+@import 'c/smartFormsShared';
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.plain-row,
+.plain-row:hover {
+    background: none;
+    cursor: default;
+}
+
+.sub-title {
+    font-size: 1.05rem;
+}
+
+.result {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 8px;
+}
+
+.result c-smart-forms-icon {
+    --sf-icon-size: 20px;
+    margin-top: 2px;
+}
+
+.result--ok {
+    background: var(--ok-soft);
+    color: var(--ink);
+}
+
+.result--ok c-smart-forms-icon {
+    color: var(--ok);
+}
+
+.result--bad {
+    background: var(--bad-soft);
+    color: var(--ink);
+}
+
+.result--bad c-smart-forms-icon {
+    color: var(--bad);
+}
+
+.result__line {
+    margin-top: 4px;
+}
+
+.payload-bar {
+    justify-content: space-between;
+}
+
+.payload {
+    margin-top: 10px;
+}
+
+pre.json {
+    margin: 10px 0 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.related {
+    margin-top: 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.mini-table td,
+.mini-table th {
+    padding: 8px 10px;
+}
+
+.record-link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+}

@@ -2,3 +2,7 @@
 **/.eslintrc.json
 **/__tests__/**
 CodeAnalyzerReport.html
+
+# Guest sharing rule is bound to the subscriber's Site (guest user 'PublicForm'), which cannot exist in a
+# scratch/package build org. Subscribers create it in Setup (setup guide, step 4); the file is kept for reference.
+main/default/sharingRules/Form__c.sharingRules-meta.xml

@@ -261,10 +261,13 @@ export default class PublicFormInstructionsModal extends LightningElement {
     async handleCopy(event) {
         const value = event.currentTarget.dataset.value;
         if (!value) return;
-        try {
-            await this.copyToClipboard(value);
+        const copied = await this.copyToClipboard(value).then(
+            () => true,
+            () => false
+        );
+        if (copied) {
             this.toast('Copied', `"${value}" copied to clipboard.`, 'success');
-        } catch (e) {
+        } else {
             this.toast('Copy failed', 'Please select the text and copy it manually.', 'warning');
         }
     }

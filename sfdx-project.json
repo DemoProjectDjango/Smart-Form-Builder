@@ -1,9 +1,22 @@
 {
   "packageDirectories": [
-    { "path": "main", "default": true }
+    {
+      "path": "main",
+      "default": true,
+      "package": "Smart Forms & Surveys",
+      "versionName": "Smart Forms & Surveys 0.5",
+      "versionNumber": "0.5.0.NEXT",
+      "versionDescription": "Redesigned app: sidebar navigation, merged form builder, Forms, Submissions, Help and Contact views.",
+      "ancestorVersion": "HIGHEST"
+    }
   ],
   "name": "Smart-Form-Builder",
   "namespace": "twinforce",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "65.0"
+  "sourceApiVersion": "65.0",
+  "packageAliases": {
+    "Smart Forms & Surveys": "0HoOW00000000Uf0AI",
+    "Smart Forms & Surveys@0.4.0-2": "04tOW00000JT15rYAD",
+    "Smart Forms & Surveys@0.5.0-1": "04tOW00000Ld3JiYAJ"
+  }
 }

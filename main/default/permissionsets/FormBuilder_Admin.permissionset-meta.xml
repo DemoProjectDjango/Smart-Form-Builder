@@ -36,6 +36,10 @@
         <apexClass>SiteNameCheckController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>SmartFormsDataController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <description>&quot;Access to build, edit, preview and manage forms + view submissions&quot;</description>
     <fieldPermissions>
         <editable>true</editable>
@@ -228,6 +232,10 @@
         <apexPage>PublicForm</apexPage>
         <enabled>true</enabled>
     </pageAccesses>
+    <tabSettings>
+        <tab>Smart_Forms</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
     <tabSettings>
         <tab>Form_Builder</tab>
         <visibility>Visible</visibility>

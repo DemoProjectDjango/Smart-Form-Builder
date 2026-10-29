@@ -1,0 +1,169 @@
+<template>
+    <section class="view" aria-labelledby="start-title">
+        <div class="view-head">
+            <div>
+                <span class="eyebrow">Form Configuration</span>
+                <h1 id="start-title">Get started</h1>
+                <p class="muted">Check that your public site is ready, then start a new form or open one to edit.</p>
+            </div>
+            <button class="btn" type="button" onclick={openGuide}>
+                <c-smart-forms-icon name="book"></c-smart-forms-icon>Setup instructions
+            </button>
+        </div>
+
+        <div class={statusCardClass} aria-live="polite">
+            <template lwc:if={checking}>
+                <span class="status-card__icon status-card__icon--wait">
+                    <c-smart-forms-icon name="refresh"></c-smart-forms-icon>
+                </span>
+                <div>
+                    <h2>Checking your public site…</h2>
+                    <p class="muted small status-card__text">Looking for the Salesforce Site named <b>PublicForm</b>.</p>
+                </div>
+            </template>
+            <template lwc:elseif={showReady}>
+                <span class="status-card__icon"><c-smart-forms-icon name="check"></c-smart-forms-icon></span>
+                <div>
+                    <h2>Your public site is ready</h2>
+                    <p class="muted small status-card__text">
+                        Site <b>PublicForm</b> was found and is <b>Active</b>. Visitors can open your form links.
+                    </p>
+                </div>
+                <div class="row">
+                    <button class="btn btn--sm" type="button" onclick={handleRecheck}>
+                        <c-smart-forms-icon name="refresh"></c-smart-forms-icon>Recheck
+                    </button>
+                    <button class="btn btn--ghost btn--sm" type="button" onclick={openGuide}>View setup instructions</button>
+                </div>
+            </template>
+            <template lwc:else>
+                <span class="status-card__icon"><c-smart-forms-icon name="warn"></c-smart-forms-icon></span>
+                <div>
+                    <h2>Setup required: public form site</h2>
+                    <p class="small status-card__text">
+                        The Salesforce Site named <b>PublicForm</b> (or <b>PublicForms</b>) is missing or not Active, so building forms is paused.
+                    </p>
+                    <p class="muted small status-card__reason">Reason: {siteReason}</p>
+                </div>
+                <div class="row">
+                    <button class="btn btn--primary btn--sm" type="button" onclick={openGuide}>
+                        <c-smart-forms-icon name="book"></c-smart-forms-icon>Show instructions
+                    </button>
+                    <button class="btn btn--sm" type="button" onclick={handleRecheck}>
+                        <c-smart-forms-icon name="refresh"></c-smart-forms-icon>Recheck
+                    </button>
+                </div>
+            </template>
+        </div>
+
+        <div class="start-grid">
+            <div class={panelClass}>
+                <div class="panel__head">
+                    <h2>Build a form</h2>
+                    <span class="chip">Step 1 of 2</span>
+                </div>
+                <div class="panel__body">
+                    <template lwc:if={showMissing}>
+                        <div class="note note--warn" role="status">
+                            <c-smart-forms-icon name="lock"></c-smart-forms-icon>
+                            <p>
+                                Form building unlocks when your public site is <b>Active</b>. Open <b>Setup instructions</b>, then click <b>Recheck</b>.
+                            </p>
+                        </div>
+                    </template>
+                    <div class="lock-content">
+                        <div class="mode" role="group" aria-label="Create or edit">
+                            <button type="button" aria-pressed={newPressed} data-mode="new" disabled={locked} onclick={handleMode}>
+                                <b>Create a new form</b><span>Start from a blank form</span>
+                            </button>
+                            <button type="button" aria-pressed={editPressed} data-mode="edit" disabled={locked} onclick={handleMode}>
+                                <b>Edit an existing form</b><span>Change fields on a form you saved</span>
+                            </button>
+                        </div>
+
+                        <template lwc:if={isEditMode}>
+                            <div class="field">
+                                <label for="cfg-existing">Form to edit</label>
+                                <select class="select" id="cfg-existing" disabled={locked} onchange={handleFormSelect}>
+                                    <option value="">None (create new)</option>
+                                    <template for:each={formSelectOptions} for:item="opt">
+                                        <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                    </template>
+                                </select>
+                                <span class="hint">Name and object fill in from the saved form.</span>
+                            </div>
+                        </template>
+
+                        <div class="field">
+                            <label for="cfg-name">Form name <span class="req-star">*</span></label>
+                            <input
+                                class="input"
+                                id="cfg-name"
+                                data-id="name"
+                                type="text"
+                                maxlength="80"
+                                value={formName}
+                                aria-invalid={nameInvalid}
+                                disabled={locked}
+                                oninput={handleName} />
+                            <template lwc:if={nameError}><span class="err" role="alert">Enter a form name.</span></template>
+                        </div>
+
+                        <div class="field">
+                            <label for="cfg-object">What should each response create? <span class="req-star">*</span></label>
+                            <select class="select" id="cfg-object" disabled={objectLocked} onchange={handleObject} aria-invalid={objectInvalid}>
+                                <option value="">Choose an object</option>
+                                <template for:each={objectSelectOptions} for:item="opt">
+                                    <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                </template>
+                            </select>
+                            <span class="hint">Any Salesforce object you can create records in. Each submission creates one record of this type. An existing form keeps its object.</span>
+                            <template lwc:if={objectError}><span class="err" role="alert">Choose an object.</span></template>
+                        </div>
+
+                        <div class="row actions-end">
+                            <button class="btn btn--primary" type="button" disabled={locked} onclick={handleNext}>Next: build form →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel__head"><h2>Site name checker</h2></div>
+                <div class="panel__body">
+                    <p class="muted small">Check whether a Salesforce Site with this name or URL path prefix exists in your org.</p>
+                    <div class="field">
+                        <label for="site-name">Site name (URL path prefix)</label>
+                        <div class="verify-row">
+                            <input
+                                class="input"
+                                id="site-name"
+                                type="text"
+                                maxlength="80"
+                                placeholder="e.g. PublicForm"
+                                value={siteName}
+                                oninput={handleSiteName}
+                                onkeydown={handleSiteNameKey} />
+                            <button class="btn" type="button" disabled={verifying} onclick={handleVerify}>Verify</button>
+                        </div>
+                        <template lwc:if={siteNameError}><span class="err" role="alert">Please enter a site name.</span></template>
+                    </div>
+                    <div aria-live="polite">
+                        <template lwc:if={verdictText}>
+                            <div class={verdictClass}>
+                                <c-smart-forms-icon name={verdictIcon}></c-smart-forms-icon>{verdictText}
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <c-public-form-instructions-modal
+        open={showGuide}
+        site-label="PublicForm"
+        example-url={exampleUrl}
+        onclose={closeGuide}>
+    </c-public-form-instructions-modal>
+</template>

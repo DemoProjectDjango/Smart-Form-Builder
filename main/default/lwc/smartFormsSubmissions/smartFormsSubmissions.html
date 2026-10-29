@@ -1,0 +1,138 @@
+<template>
+    <section class="view" aria-labelledby="subs-title">
+        <div class="view-head">
+            <div>
+                <h1 id="subs-title">Submissions</h1>
+                <p class="muted">Everything visitors sent. Each one shows the record it created or updated, or the error that stopped it.</p>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="seg" role="group" aria-label="Filter submissions">
+                <button type="button" aria-pressed={allPressed} data-filter="all" onclick={handleFilter}>All</button>
+                <button type="button" aria-pressed={okPressed} data-filter="ok" onclick={handleFilter}>Record saved</button>
+                <button type="button" aria-pressed={errPressed} data-filter="err" onclick={handleFilter}>Has error</button>
+            </div>
+            <template lwc:if={atLimit}><span class="muted small">{limitText}</span></template>
+        </div>
+
+        <div class="split">
+            <div class="panel table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Submission</th>
+                            <th>Form</th>
+                            <th>Result</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template lwc:if={hasRows}>
+                            <template for:each={rows} for:item="row">
+                                <tr key={row.key} tabindex="0" data-id={row.id} aria-selected={row.selected} onclick={handleRowClick} onkeydown={handleRowKey}>
+                                    <td class="cell-strong mono">{row.name}</td>
+                                    <td>{row.formName}</td>
+                                    <td><span class={row.resultClass}>{row.resultLabel}</span></td>
+                                    <td class="muted nowrap">{row.created}</td>
+                                </tr>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <tr class="plain-row"><td colspan="4" class="muted">{emptyText}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel">
+                <template lwc:if={hasDetail}>
+                    <div class="panel__head">
+                        <div>
+                            <span class="eyebrow">Submission</span>
+                            <h2 class="mono sub-title">{summary.name}</h2>
+                            <span class="muted small">{headerMeta}</span>
+                        </div>
+                        <span class={headerResult.cls}>{headerResult.label}</span>
+                    </div>
+                    <div class="panel__body">
+                        <template lwc:if={isError}>
+                            <div class="result result--bad" role="alert">
+                                <c-smart-forms-icon name="bad"></c-smart-forms-icon>
+                                <div>
+                                    <b>No record was saved</b>
+                                    <p class="small result__line">Error message from Salesforce:</p>
+                                    <p class="mono small result__line">{errorText}</p>
+                                </div>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <div class="result result--ok">
+                                <c-smart-forms-icon name="ok"></c-smart-forms-icon>
+                                <div>
+                                    <b>{resultTitle}</b>
+                                    <p class="small result__line">{resultText}</p>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div>
+                            <div class="row payload-bar">
+                                <span class="eyebrow">What the visitor sent</span>
+                                <div class="seg" role="group" aria-label="Payload view">
+                                    <button type="button" aria-pressed={tablePressed} data-view="table" onclick={handlePayloadView}>Readable</button>
+                                    <button type="button" aria-pressed={jsonPressed} data-view="json" onclick={handlePayloadView}>Raw JSON</button>
+                                </div>
+                            </div>
+                            <template lwc:if={isTableView}>
+                                <dl class="kv payload">
+                                    <template for:each={payloadEntries} for:item="entry">
+                                        <dt key={entry.dtKey}>{entry.name}</dt>
+                                        <dd key={entry.ddKey}>{entry.value}</dd>
+                                    </template>
+                                </dl>
+                            </template>
+                            <template lwc:if={isJsonView}>
+                                <pre class="json payload">{payloadJsonText}</pre>
+                            </template>
+                        </div>
+
+                        <template lwc:if={hasRecords}>
+                            <div>
+                                <span class="eyebrow">Related records</span>
+                                <div class="table-wrap related">
+                                    <table class="mini-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Object</th>
+                                                <th>Record Id</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template for:each={records} for:item="r">
+                                                <tr key={r.key} class="plain-row">
+                                                    <td>{r.objectDisplay}</td>
+                                                    <td>
+                                                        <template lwc:if={r.canOpen}>
+                                                            <button class="record-link mono" type="button" data-id={r.recordId} data-object={r.objectApiName} onclick={handleOpenRecord}>{r.recordId}</button>
+                                                        </template>
+                                                        <template lwc:else><span class="mono">{r.recordId}</span></template>
+                                                    </td>
+                                                    <td>{r.action}</td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <div class="empty">Select a submission to see what the visitor sent.</div>
+                </template>
+            </div>
+        </div>
+    </section>
+</template>

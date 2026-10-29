@@ -1,8 +1,8 @@
 /* ── Tokens ───────────────────────────────────────────────────────────────── */
 :host {
-    --setup-brand: var(--slds-g-color-brand-base-50, #0176d3);
-    --setup-brand-dark: var(--slds-g-color-brand-base-30, #014486);
-    --setup-brand-soft: var(--slds-g-color-brand-base-95, #eef4ff);
+    --setup-brand: #0070d2;
+    --setup-brand-dark: #004a8f;
+    --setup-brand-soft: #e6f1fb;
     --setup-ink: var(--slds-g-color-neutral-base-10, #181818);
     --setup-ink-soft: var(--slds-g-color-neutral-base-40, #5c5c5c);
     --setup-line: var(--slds-g-color-border-1, #e5e5e5);

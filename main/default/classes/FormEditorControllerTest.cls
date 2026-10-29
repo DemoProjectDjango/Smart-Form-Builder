@@ -19,7 +19,7 @@ private class FormEditorControllerTest {
     }
 
     private static String getFormObjectApiName() {
-        return Form__c.SObjectType.getDescribe().getName();
+        return Form__c.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName();
     }
 
     private static String getFieldPermissionName(Schema.SObjectField fieldRef) {

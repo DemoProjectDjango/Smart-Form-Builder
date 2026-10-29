@@ -1,0 +1,69 @@
+<template>
+    <div class="shell" data-id="top">
+        <aside class="sidebar">
+            <div class="sidebar__inner">
+                <div class="brand">
+                    <div class="logo"><c-smart-forms-icon name="logo"></c-smart-forms-icon></div>
+                    <span class="appname">{productName}</span>
+                </div>
+                <nav class="tabs" aria-label={productName}>
+                    <template for:each={tabs} for:item="tab">
+                        <button key={tab.key} type="button" class={tab.tabClass} data-view={tab.id} aria-current={tab.current} onclick={handleTab}>
+                            <c-smart-forms-icon name={tab.icon}></c-smart-forms-icon>
+                            <span class="tab__label">{tab.label}</span>
+                            <template lwc:if={tab.hasBadge}>
+                                <span class="count" aria-label={tab.badgeLabel}>{tab.badge}</span>
+                            </template>
+                        </button>
+                    </template>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div class="wrap">
+                <div hidden={hideStart}>
+                    <c-smart-forms-start preset={startPreset} onopenbuilder={handleOpenBuilder} onnotify={handleNotify}></c-smart-forms-start>
+                </div>
+
+                <div hidden={hideBuilder}>
+                    <c-smart-forms-builder
+                        request={builderRequest}
+                        base-url={baseUrl}
+                        onnotify={handleNotify}
+                        onsaved={handleSaved}
+                        ongostart={handleGoStart}>
+                    </c-smart-forms-builder>
+                </div>
+
+                <template lwc:if={isForms}>
+                    <c-smart-forms-forms
+                        base-url={baseUrl}
+                        onnotify={handleNotify}
+                        onnewform={handleGoStart}
+                        oneditform={handleEditForm}
+                        ongosubmissions={handleGoSubmissions}>
+                    </c-smart-forms-forms>
+                </template>
+
+                <template lwc:if={isSubmissions}>
+                    <c-smart-forms-submissions onnotify={handleNotify}></c-smart-forms-submissions>
+                </template>
+
+                <template lwc:if={isHelp}>
+                    <c-smart-forms-help onnavigate={handleNavigate}></c-smart-forms-help>
+                </template>
+
+                <template lwc:if={isContact}>
+                    <c-smart-forms-contact onnavigate={handleNavigate} onnotify={handleNotify}></c-smart-forms-contact>
+                </template>
+            </div>
+        </main>
+
+        <div class="toast-region" role="status" aria-live="polite">
+            <template for:each={toasts} for:item="t">
+                <div key={t.id} class={t.toastClass}>{t.message}</div>
+            </template>
+        </div>
+    </div>
+</template>

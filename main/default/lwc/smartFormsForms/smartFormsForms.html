@@ -1,0 +1,158 @@
+<template>
+    <section class="view" aria-labelledby="forms-title">
+        <div class="view-head">
+            <div>
+                <h1 id="forms-title">Forms</h1>
+                <p class="muted">Every saved form, with its public link and version.</p>
+            </div>
+            <button class="btn btn--primary" type="button" onclick={handleNewForm}>
+                <c-smart-forms-icon name="plus"></c-smart-forms-icon>New form
+            </button>
+        </div>
+
+        <div class="toolbar">
+            <label class="search">
+                <c-smart-forms-icon name="search"></c-smart-forms-icon>
+                <input class="input" type="search" placeholder="Search forms" aria-label="Search forms" value={query} oninput={handleSearch} />
+            </label>
+            <span class="muted small" aria-live="polite">{countText}</span>
+        </div>
+
+        <div class="split">
+            <div class="panel table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Creates</th>
+                            <th>Version</th>
+                            <th>Status</th>
+                            <th>Form link</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template lwc:if={hasRows}>
+                            <template for:each={rows} for:item="row">
+                                <tr key={row.key} tabindex="0" data-id={row.id} aria-selected={row.selected} onclick={handleRowClick} onkeydown={handleRowKey}>
+                                    <td class="cell-strong">{row.name}</td>
+                                    <td>{row.objectLabel}</td>
+                                    <td>{row.version}</td>
+                                    <td><span class={row.statusClass}>{row.statusLabel}</span></td>
+                                    <td>
+                                        <template lwc:if={row.hasLink}>
+                                            <button class="btn btn--ghost btn--sm link-btn" type="button" data-id={row.id} onclick={handleOpenRowLink}>
+                                                <c-smart-forms-icon name="external"></c-smart-forms-icon>Open form
+                                            </button>
+                                        </template>
+                                        <template lwc:else><span class="muted small">Not available</span></template>
+                                    </td>
+                                    <td class="muted nowrap">{row.created}</td>
+                                </tr>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <tr class="plain-row"><td colspan="6" class="muted">{emptyText}</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel">
+                <template lwc:if={hasSelected}>
+                    <div class="panel__head">
+                        <div>
+                            <span class="eyebrow">Form</span>
+                            <h2>{selected.name}</h2>
+                        </div>
+                        <span class={statusClass}>{statusLabel}</span>
+                    </div>
+                    <div class="detail-tabs" role="tablist" aria-label="Form details">
+                        <button type="button" role="tab" data-tab="details" aria-selected={detailsSelected} onclick={handleTab}>Details</button>
+                        <button type="button" role="tab" data-tab="visitor" aria-selected={visitorSelected} onclick={handleTab}>Visitor view</button>
+                    </div>
+
+                    <template lwc:if={isVisitorTab}>
+                        <div class="detail-preview">
+                            <div class="row preview-bar">
+                                <span class="muted small">What people see when they open this form's link. Try filling it in.</span>
+                                <div class="seg" role="group" aria-label="Page state">
+                                    <button type="button" data-notfound="false" aria-pressed={formPressed} onclick={handlePreviewState}>Form</button>
+                                    <button type="button" data-notfound="true" aria-pressed={wrongLinkPressed} onclick={handlePreviewState}>Wrong or old link</button>
+                                </div>
+                            </div>
+                            <c-smart-forms-visitor
+                                form-name={selected.name}
+                                fields={fields}
+                                url={previewUrl}
+                                not-found={notFoundPreview}>
+                            </c-smart-forms-visitor>
+                        </div>
+                    </template>
+                    <template lwc:else>
+                        <div class="panel__body">
+                            <template lwc:if={hasUrl}>
+                                <div class="field">
+                                    <span class="lbl">Public link</span>
+                                    <div class="linkbox">
+                                        <code>{publicLink}</code>
+                                        <button class="btn btn--sm" type="button" onclick={handleCopy}>
+                                            <c-smart-forms-icon name="copy"></c-smart-forms-icon>Copy
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <button class="btn btn--primary" type="button" onclick={handleOpenPublic}>
+                                        <c-smart-forms-icon name="external"></c-smart-forms-icon>Open public form
+                                    </button>
+                                    <button class="btn" type="button" data-tab="visitor" onclick={handleTab}>
+                                        <c-smart-forms-icon name="eye"></c-smart-forms-icon>Preview here
+                                    </button>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <div class="row">
+                                    <button class="btn btn--primary" type="button" disabled>
+                                        <c-smart-forms-icon name="external"></c-smart-forms-icon>Open public form
+                                    </button>
+                                    <button class="btn" type="button" data-tab="visitor" onclick={handleTab}>
+                                        <c-smart-forms-icon name="eye"></c-smart-forms-icon>Preview here
+                                    </button>
+                                </div>
+                                <div class="note note--warn">
+                                    <c-smart-forms-icon name="warn"></c-smart-forms-icon>
+                                    <p>
+                                        <b>Site URL not configured.</b> Finish step 5 of the setup instructions to create form links.
+                                        <button class="btn btn--ghost btn--sm inline-btn" type="button" onclick={openGuide}>Open instructions</button>
+                                    </p>
+                                </div>
+                            </template>
+                            <dl class="kv">
+                                <template for:each={facts} for:item="fact">
+                                    <dt key={fact.dtKey}>{fact.label}</dt>
+                                    <dd key={fact.ddKey}>{fact.value}</dd>
+                                </template>
+                            </dl>
+                            <div class="row">
+                                <button class="btn" type="button" onclick={handleEditForm}>
+                                    <c-smart-forms-icon name="edit"></c-smart-forms-icon>Edit in Form Builder
+                                </button>
+                                <button class="btn btn--ghost" type="button" onclick={handleGoSubmissions}>View submissions</button>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+                <template lwc:else>
+                    <div class="empty">Select a form to see its link and details.</div>
+                </template>
+            </div>
+        </div>
+    </section>
+
+    <c-public-form-instructions-modal
+        open={showGuide}
+        site-label="PublicForm"
+        example-url={exampleUrl}
+        onclose={closeGuide}>
+    </c-public-form-instructions-modal>
+</template>

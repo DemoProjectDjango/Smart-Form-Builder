@@ -8,7 +8,7 @@
         <name>backgroundComponents</name>
         <type>Background</type>
     </flexiPageRegions>
-    <masterLabel>VF-FormBuilder UtilityBar</masterLabel>
+    <masterLabel>Smart Forms &amp; Surveys (native) UtilityBar</masterLabel>
     <template>
         <name>one:utilityBarTemplateDesktop</name>
         <properties>

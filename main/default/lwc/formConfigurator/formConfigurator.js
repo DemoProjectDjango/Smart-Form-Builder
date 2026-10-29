@@ -88,7 +88,7 @@ export default class FormConfigurator extends NavigationMixin(LightningElement) 
                     break; // navigation succeeded, stop trying other namespaces
                 } catch (err) {
                     // try next namespace
-                    console.warn(`Navigation with ${tabApiName} failed, trying next if available.`);
+                    console.warn(`Navigation with ${tabApiName} failed, trying next if available.`, err);
                 }
             }
         } catch (error) {

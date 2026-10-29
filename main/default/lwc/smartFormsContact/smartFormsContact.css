@@ -1,0 +1,106 @@
+@import 'c/smartFormsShared';
+
+.eyebrow--accent {
+    color: var(--accent);
+}
+
+.company {
+    gap: 10px;
+}
+
+.chip--pill {
+    border-radius: 999px;
+    padding: 2px 10px;
+    border: 1px solid var(--accent);
+}
+
+.intro {
+    margin-top: 4px;
+}
+
+.channels {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.channel {
+    --sf-icon-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--surface);
+    min-width: 0;
+}
+
+.channel:hover {
+    border-color: var(--accent);
+}
+
+.channel__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.channel__text {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+}
+
+.channel__label {
+    font-weight: 700;
+}
+
+.channel__value {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel__actions {
+    display: flex;
+    gap: 8px;
+    flex: none;
+}
+
+a.iconbtn {
+    text-decoration: none;
+}
+
+.btn--soft {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+}
+
+@media (max-width: 900px) {
+    .channels {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
