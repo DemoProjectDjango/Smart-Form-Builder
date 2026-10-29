@@ -117,7 +117,8 @@ public with sharing class FormEditorMetadataService {
             'name'           => fieldName,
             'type'           => String.valueOf(fd.getType()),
             'picklistValues' => buildPicklistValues(fd),
-            'required'       => isRequiredOnCreate(fd)
+            'required'       => isRequiredOnCreate(fd),
+            'referenceTo'    => buildReferenceTo(fd)
         };
     }
 
@@ -145,6 +146,21 @@ public with sharing class FormEditorMetadataService {
         }
 
         return picklistValues;
+    }
+
+    /**
+     * @description API names of the objects a lookup field can point to (empty for other types).
+     * @param fd Field describe result.
+     * @return List of object API names.
+     */
+    private static List<String> buildReferenceTo(Schema.DescribeFieldResult fd) {
+        List<String> targets = new List<String>();
+        if (fd != null && fd.getType() == Schema.DisplayType.REFERENCE) {
+            for (Schema.SObjectType t : fd.getReferenceTo()) {
+                targets.add(String.valueOf(t));
+            }
+        }
+        return targets;
     }
 
     /**

@@ -1,34 +1,31 @@
 /**
  * @description Test class for FormSubmissionProcessor.
  *
- * This org can throw from FormSubmissionTrigger for some payloads, which prevents insertion of
- * Form_Submission__c. Therefore tests use Database.insert(..., false) and validate outcomes.
+ * Rules under test:
+ * - Only fields listed in the form's saved configuration (Field_Config__c) are written; anything
+ *   else a visitor sends is ignored.
+ * - Lookup fields are hidden unless the admin configured them: a fixed record, or selected
+ *   choices submitted as opaque keys. Visitor-supplied record Ids are never used.
+ * - Public submissions can only create records; a payload carrying an Id is rejected.
+ * - A rejected record is stored as the submission's error message; nothing throws out of the trigger.
  *
  * All verification queries use WITH USER_MODE. Every test runs as a dedicated user
  * assigned the packaged FormBuilder_Admin permission set, so USER_MODE has the FLS it
  * needs both locally and in the package-version-create build org (where FLS on packaged
  * fields is never auto-granted to the default test user).
- *
- * Contract asserted:
- * - If Form_Submission__c inserts successfully:
- *    - Error_Message__c blank => tracking row(s) exist (>= 1)
- *    - Error_Message__c populated => tracking row count is 0
- * - If insert fails => CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY
  */
 @IsTest
 @SuppressWarnings('PMD.ApexCRUDViolation, PMD.ApexUnitTestClassShouldHaveAsserts, PMD.ApexAssertionsShouldIncludeMessage, PMD.CyclomaticComplexity')
 private class FormSubmissionProcessorTest {
 
-    private static final String TEST_FORM_NAME     = 'TestForm';
-    private static final String TEST_OBJECT_API    = 'Account';
-    private static final String INVALID_OBJECT_API = 'NonExistentObject__c';
-
-    private static final String TEST_JSON_INVALID = 'Not JSON';
-    private static final String TEST_JSON_NON_OBJECT = '[]';
-    private static final String TEST_JSON_EMPTY   = '{}';
-    private static final String TEST_JSON_BAD_ID  = '{"Id":"BadId123"}';
-
     private static final String RUN_AS_ALIAS = 'fsbp';
+
+    private static final String FORM_ACCOUNT = 'AccountForm';
+    private static final String FORM_FIXED   = 'FixedParentForm';
+    private static final String FORM_NOCFG   = 'NoConfigForm';
+    private static final String FORM_CONTACT = 'ContactForm';
+    private static final String FORM_OPP     = 'OppForm';
+    private static final String FORM_EVENT   = 'EventForm';
 
     @TestSetup
     static void setup() {
@@ -73,86 +70,99 @@ private class FormSubmissionProcessorTest {
         }
     }
 
-    private static User getRunAsUser() {
-        return [
-            SELECT Id
-            FROM User
-            WHERE Alias = :RUN_AS_ALIAS
-            LIMIT 1
-        ];
+    // ============================================================
+    // Test data
+    // ============================================================
+
+    private static Map<String, Object> field(String apiName, String type) {
+        return new Map<String, Object>{ 'apiName' => apiName, 'type' => type, 'required' => false };
+    }
+
+    private static Map<String, Object> lookupField(String apiName, Map<String, Object> lookup) {
+        Map<String, Object> f = field(apiName, 'REFERENCE');
+        f.put('lookup', lookup);
+        return f;
+    }
+
+    private static Map<String, Object> picklistField(String apiName, List<String> values) {
+        Map<String, Object> f = field(apiName, 'PICKLIST');
+        List<Object> options = new List<Object>();
+        for (String v : values) {
+            options.add(new Map<String, Object>{ 'label' => v, 'value' => v });
+        }
+        f.put('picklistValues', options);
+        return f;
     }
 
     private static void insertTestData() {
-        insert new Form__c(
-            Name = TEST_FORM_NAME,
-            Object_API_Name__c = TEST_OBJECT_API
-        );
-        insert new Form__c(
-            Name = 'ContactForm',
-            Object_API_Name__c = 'Contact'
-        );
-        insert new Form__c(
-            Name = 'OppForm',
-            Object_API_Name__c = 'Opportunity'
-        );
-        insert new Form__c(
-            Name = 'EventForm',
-            Object_API_Name__c = 'Event'
-        );
-        insert new Account(Name = 'Original Acc');
-        insert new Account(Name = 'Parent Acc');
+        Account parent = new Account(Name = 'Parent Acc');
+        Account original = new Account(Name = 'Original Acc');
+        insert new List<Account>{ parent, original };
+
+        // ParentId: selected choices (o1 -> Parent Acc); OwnerId: left unconfigured, so hidden.
+        Map<String, Object> parentChoices = new Map<String, Object>{
+            'mode' => 'choices',
+            'choices' => new List<Object>{
+                new Map<String, Object>{ 'key' => 'o1', 'id' => String.valueOf(parent.Id), 'label' => 'Parent Acc' }
+            }
+        };
+        List<Object> accountConfig = new List<Object>{
+            field('Name', 'STRING'),
+            field('AnnualRevenue', 'CURRENCY'),
+            field('NumberOfEmployees', 'INTEGER'),
+            field('Site', 'STRING'),
+            picklistField('Industry', new List<String>{ 'Banking', 'Education' }),
+            lookupField('ParentId', parentChoices),
+            lookupField('OwnerId', null)
+        };
+        // ParentId fixed to the parent account.
+        List<Object> fixedConfig = new List<Object>{
+            field('Name', 'STRING'),
+            lookupField('ParentId', new Map<String, Object>{
+                'mode' => 'fixed',
+                'record' => new Map<String, Object>{ 'id' => String.valueOf(parent.Id), 'label' => 'Parent Acc', 'showToVisitors' => false }
+            })
+        };
+
+        insert new List<Form__c>{
+            new Form__c(Name = FORM_ACCOUNT, Object_API_Name__c = 'Account', Field_Config__c = JSON.serialize(accountConfig)),
+            new Form__c(Name = FORM_FIXED, Object_API_Name__c = 'Account', Field_Config__c = JSON.serialize(fixedConfig)),
+            new Form__c(Name = FORM_NOCFG, Object_API_Name__c = 'Account'),
+            new Form__c(Name = FORM_CONTACT, Object_API_Name__c = 'Contact', Field_Config__c = JSON.serialize(new List<Object>{
+                field('FirstName', 'STRING'), field('LastName', 'STRING'), field('Birthdate', 'DATE'), field('Email', 'EMAIL')
+            })),
+            new Form__c(Name = FORM_OPP, Object_API_Name__c = 'Opportunity', Field_Config__c = JSON.serialize(new List<Object>{
+                field('Name', 'STRING'), field('CloseDate', 'DATE'), field('StageName', 'PICKLIST'),
+                field('Amount', 'CURRENCY'), field('Probability', 'PERCENT')
+            })),
+            new Form__c(Name = FORM_EVENT, Object_API_Name__c = 'Event', Field_Config__c = JSON.serialize(new List<Object>{
+                field('Subject', 'STRING'), field('StartDateTime', 'DATETIME'), field('EndDateTime', 'DATETIME')
+            }))
+        };
     }
 
     // ============================================================
     // Helpers
     // ============================================================
 
-    private static Id getFormId() {
-        return [SELECT Id FROM Form__c WHERE Name = :TEST_FORM_NAME WITH USER_MODE LIMIT 1].Id;
+    private static User getRunAsUser() {
+        return [SELECT Id FROM User WHERE Alias = :RUN_AS_ALIAS LIMIT 1];
     }
 
-    private static Id getContactFormId() {
-        return [SELECT Id FROM Form__c WHERE Name = 'ContactForm' WITH USER_MODE LIMIT 1].Id;
+    private static Id formId(String name) {
+        return [SELECT Id FROM Form__c WHERE Name = :name WITH USER_MODE LIMIT 1].Id;
     }
 
-    private static Id getOppFormId() {
-        return [SELECT Id FROM Form__c WHERE Name = 'OppForm' WITH USER_MODE LIMIT 1].Id;
-    }
-
-    private static Id getEventFormId() {
-        return [SELECT Id FROM Form__c WHERE Name = 'EventForm' WITH USER_MODE LIMIT 1].Id;
-    }
-
-    private static Id getAccountId() {
-        return [SELECT Id FROM Account WHERE Name = 'Original Acc' WITH USER_MODE LIMIT 1].Id;
-    }
-
-    private static Id getParentAccountId() {
-        return [SELECT Id FROM Account WHERE Name = 'Parent Acc' WITH USER_MODE LIMIT 1].Id;
+    private static Id accountId(String name) {
+        return [SELECT Id FROM Account WHERE Name = :name WITH USER_MODE LIMIT 1].Id;
     }
 
     private static Form_Submission__c makeSubmission(Id formId, String payload) {
-        return new Form_Submission__c(
-            Form__c = formId,
-            Payload_JSON__c = payload
-        );
+        return new Form_Submission__c(Form__c = formId, Payload_JSON__c = payload);
     }
 
     private static String payloadBoth(Map<String, Object> fields) {
-        Map<String, Object> wrapper = new Map<String, Object>();
-        for (String k : fields.keySet()) {
-            wrapper.put(k, fields.get(k));
-        }
-        wrapper.put('fields', fields);
-        return JSON.serialize(wrapper);
-    }
-
-    private static String payloadUpdateBoth(Id recordId, Map<String, Object> fields) {
-        Map<String, Object> wrapper = new Map<String, Object>();
-        wrapper.put('Id', String.valueOf(recordId));
-        for (String k : fields.keySet()) {
-            wrapper.put(k, fields.get(k));
-        }
+        Map<String, Object> wrapper = new Map<String, Object>(fields);
         wrapper.put('fields', fields);
         return JSON.serialize(wrapper);
     }
@@ -176,440 +186,495 @@ private class FormSubmissionProcessorTest {
         ];
     }
 
-    private static void assertSubmissionOutcome(Database.SaveResult sr) {
-        System.assertNotEquals(null, sr, 'SaveResult must not be null.');
+    /**
+     * Inserts one submission and returns it reloaded. FormSubmissionHandler processes only the first
+     * insert of a transaction, so each test submits exactly once.
+     */
+    private static Form_Submission__c submit(String formName, String payload) {
+        Database.SaveResult sr = Database.insert(makeSubmission(formId(formName), payload), false);
+        System.assert(sr.isSuccess(), 'The submission itself must always be stored: ' + sr.getErrors());
+        return reloadSub(sr.getId());
+    }
 
-        if (!sr.isSuccess()) {
-            System.assert(
-                sr.getErrors() != null && sr.getErrors().size() > 0,
-                'Expected at least one error when insert fails.'
-            );
-            Database.Error e = sr.getErrors()[0];
-            System.assertNotEquals(null, e, 'SaveResult error must not be null.');
-            System.assertEquals(
-                StatusCode.CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY,
-                e.getStatusCode(),
-                'Expected trigger failure status code CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY.'
-            );
-            return;
-        }
+    private static SObject createdRecord(Form_Submission__c saved, String objectApiName, List<String> fields) {
+        Id targetId = [
+            SELECT Record_Id__c
+            FROM Form_Submission_Record__c
+            WHERE Form_Submission__c = :saved.Id
+            WITH USER_MODE
+            LIMIT 1
+        ].Record_Id__c;
+        return Database.query(
+            'SELECT ' + String.join(fields, ', ') + ' FROM ' + objectApiName
+            + ' WHERE Id = :targetId WITH USER_MODE LIMIT 1'
+        );
+    }
 
-        Id subId = sr.getId();
-        System.assertNotEquals(null, subId, 'If insert succeeded, Id must be populated.');
+    private static void assertRejected(Form_Submission__c saved, String expectedMessagePart) {
+        System.assert(String.isNotBlank(saved.Error_Message__c), 'An error message must be stored.');
+        System.assert(
+            saved.Error_Message__c.contains(expectedMessagePart),
+            'Unexpected error message: ' + saved.Error_Message__c
+        );
+        System.assertEquals(0, trackingCountForSub(saved.Id), 'No record may be tracked for a rejected submission.');
+    }
 
-        Form_Submission__c saved = reloadSub(subId);
-        Integer tCount = trackingCountForSub(subId);
+    // ============================================================
+    // Allow-list
+    // ============================================================
 
-        if (String.isBlank(saved.Error_Message__c)) {
-            System.assert(
-                tCount >= 1,
-                'When Error_Message__c is blank, expected at least 1 tracking record. Actual: ' + tCount
-            );
-        } else {
-            System.assertEquals(
-                0,
-                tCount,
-                'When Error_Message__c is populated, expected 0 tracking records. Actual: ' + tCount
-            );
+    @IsTest
+    static void testFieldsOnTheFormAreWritten() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{
+                'Name' => 'Test Acc Types',
+                'AnnualRevenue' => 100000.5,
+                'NumberOfEmployees' => 100,
+                'Site' => 'Test Site',
+                'Industry' => 'Banking'
+            }));
+
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account',
+                new List<String>{ 'Name', 'AnnualRevenue', 'NumberOfEmployees', 'Site', 'Industry' });
+            System.assertEquals('Test Acc Types', created.Name);
+            System.assertEquals(100000.5, created.AnnualRevenue);
+            System.assertEquals(100, created.NumberOfEmployees);
+            System.assertEquals('Test Site', created.Site);
+            System.assertEquals('Banking', created.Industry);
         }
     }
 
-    // ✅ converts expected String values for Date/Datetime fields before asserting
-    private static Object normalizeExpected(Object expected, Object actual) {
-        if (expected == null || actual == null) {
-            return expected;
-        }
+    @IsTest
+    static void testFieldsNotOnTheFormAreIgnored() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, JSON.serialize(new Map<String, Object>{
+                'Name' => 'Allow List Acc',
+                'Description' => 'must not be written',
+                'Phone' => '555-0100'
+            }));
 
-        // Date field stored as Date, expected sent as 'YYYY-MM-DD'
-        if (actual instanceof Date && expected instanceof String) {
-            try {
-                return Date.valueOf((String) expected);
-            } catch (Exception ex) {
-                return expected;
-            }
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account', new List<String>{ 'Name', 'Description', 'Phone' });
+            System.assertEquals('Allow List Acc', created.Name);
+            System.assertEquals(null, created.Description, 'A field that is not on the form must be ignored.');
+            System.assertEquals(null, created.Phone, 'A field that is not on the form must be ignored.');
         }
-
-        // Datetime field stored as Datetime, expected sent as ISO string
-        if (actual instanceof Datetime && expected instanceof String) {
-            String s = ((String) expected).trim();
-            // Handle ISO formats used by your payloads: '2024-01-01T12:00:00Z' and also with ms
-            s = s.replace('T', ' ');
-            if (s.endsWith('Z')) {
-                s = s.substring(0, s.length() - 1);
-            }
-            Integer dotPos = s.indexOf('.');
-            if (dotPos > -1) {
-                s = s.substring(0, dotPos);
-            }
-            try {
-                return Datetime.valueOf(s);
-            } catch (Exception ex) {
-                return expected;
-            }
-        }
-
-        return expected;
     }
 
-    private static void assertSuccessfulInsert(
-        Database.SaveResult sr,
-        String objectApiName,
-        Map<String, Object> expectedFields
-    ) {
-        assertSubmissionOutcome(sr);
+    @IsTest
+    static void testFormWithoutSavedConfigurationIsRejected() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_NOCFG, payloadBoth(new Map<String, Object>{ 'Name' => 'No Config' }));
 
-        if (sr.isSuccess()) {
-            Form_Submission__c saved = reloadSub(sr.getId());
-            System.assert(String.isBlank(saved.Error_Message__c), 'Expected no error for successful insert.');
-            System.assertEquals(1, trackingCountForSub(saved.Id), 'Expected one tracking record.');
+            assertRejected(saved, 'no saved field configuration');
+        }
+    }
 
-            Id targetId = [
-                SELECT Record_Id__c
-                FROM Form_Submission_Record__c
-                WHERE Form_Submission__c = :saved.Id
-                WITH USER_MODE
-                LIMIT 1
-            ].Record_Id__c;
-
-            SObject targetRecord = Database.query(
-                'SELECT ' + String.join(new List<String>(expectedFields.keySet()), ', ')
-                + ' FROM ' + objectApiName
-                + ' WHERE Id = :targetId WITH USER_MODE LIMIT 1'
-            );
-
-            for (String field : expectedFields.keySet()) {
-                Object actualVal = targetRecord.get(field);
-                Object expectedVal = normalizeExpected(expectedFields.get(field), actualVal);
-                System.assertEquals(expectedVal, actualVal, field + ' should match.');
+    @IsTest
+    static void testTooManyFieldsAreRejected() {
+        System.runAs(getRunAsUser()) {
+            Map<String, Object> many = new Map<String, Object>();
+            for (Integer i = 0; i < 201; i++) {
+                many.put('F' + i, 'x');
             }
+
+            Form_Submission__c saved = submit(FORM_ACCOUNT, JSON.serialize(many));
+
+            assertRejected(saved, 'too many fields');
+        }
+    }
+
+    @IsTest
+    static void testPicklistValueMustBeOneOfTheFormsValues() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{
+                'Name' => 'Bad Industry',
+                'Industry' => 'Not A Real Value'
+            }));
+
+            assertRejected(saved, 'Invalid value for Industry');
         }
     }
 
     // ============================================================
-    // Tests
+    // Create only
+    // ============================================================
+
+    @IsTest
+    static void testPayloadWithAnIdIsRejectedAndNothingIsUpdated() {
+        System.runAs(getRunAsUser()) {
+            Id existing = accountId('Original Acc');
+
+            Form_Submission__c saved = submit(FORM_ACCOUNT, JSON.serialize(new Map<String, Object>{
+                'Id' => String.valueOf(existing),
+                'Name' => 'Hijacked'
+            }));
+
+            assertRejected(saved, 'Updating existing records is not allowed');
+            System.assertEquals('Original Acc', [SELECT Name FROM Account WHERE Id = :existing WITH USER_MODE].Name);
+        }
+    }
+
+    @IsTest
+    static void testNestedIdIsAlsoRejected() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, JSON.serialize(new Map<String, Object>{
+                'fields' => new Map<String, Object>{ 'id' => String.valueOf(accountId('Original Acc')), 'Name' => 'Hijacked' }
+            }));
+
+            assertRejected(saved, 'Updating existing records is not allowed');
+        }
+    }
+
+    // ============================================================
+    // Lookup fields
+    // ============================================================
+
+    @IsTest
+    static void testBlankUnconfiguredLookupDoesNotRejectTheRecord() {
+        // The original failure: a blank Owner lookup became OwnerId = null and rejected the record.
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{ 'Name' => 'Blank Owner', 'OwnerId' => '' }));
+
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account', new List<String>{ 'OwnerId' });
+            System.assertEquals(UserInfo.getUserId(), created.OwnerId, 'Salesforce applies its normal owner default.');
+        }
+    }
+
+    @IsTest
+    static void testVisitorSuppliedOwnerIsNeverUsed() {
+        System.runAs(getRunAsUser()) {
+            Id someoneElse = [SELECT Id FROM User WHERE Id != :UserInfo.getUserId() AND IsActive = true LIMIT 1].Id;
+
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{
+                'Name' => 'Forged Owner',
+                'OwnerId' => String.valueOf(someoneElse)
+            }));
+
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account', new List<String>{ 'OwnerId' });
+            System.assertNotEquals(someoneElse, created.OwnerId, 'A visitor-supplied Owner Id must never be used.');
+        }
+    }
+
+    @IsTest
+    static void testChoiceKeyIsMappedToTheConfiguredRecord() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{ 'Name' => 'Child Acc', 'ParentId' => 'o1' }));
+
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account', new List<String>{ 'ParentId' });
+            System.assertEquals(accountId('Parent Acc'), created.ParentId);
+        }
+    }
+
+    @IsTest
+    static void testBlankChoiceLeavesTheLookupEmpty() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{ 'Name' => 'No Parent', 'ParentId' => '' }));
+
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account', new List<String>{ 'ParentId' });
+            System.assertEquals(null, created.ParentId);
+        }
+    }
+
+    @IsTest
+    static void testRawRecordIdIsNotAValidChoice() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_ACCOUNT, payloadBoth(new Map<String, Object>{
+                'Name' => 'Raw Id',
+                'ParentId' => String.valueOf(accountId('Original Acc'))
+            }));
+
+            assertRejected(saved, 'Invalid selection for ParentId');
+        }
+    }
+
+    @IsTest
+    static void testFixedRecordIsAppliedAndVisitorValueIgnored() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_FIXED, payloadBoth(new Map<String, Object>{
+                'Name' => 'Fixed Child',
+                'ParentId' => String.valueOf(accountId('Original Acc'))
+            }));
+
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Account created = (Account) createdRecord(saved, 'Account', new List<String>{ 'ParentId' });
+            System.assertEquals(accountId('Parent Acc'), created.ParentId, 'The configured record wins over anything sent.');
+        }
+    }
+
+    @IsTest
+    static void testConfiguredRecordOfTheWrongObjectIsRejected() {
+        System.runAs(getRunAsUser()) {
+            Form__c broken = new Form__c(
+                Name = 'WrongTarget',
+                Object_API_Name__c = 'Account',
+                Field_Config__c = JSON.serialize(new List<Object>{
+                    field('Name', 'STRING'),
+                    lookupField('ParentId', new Map<String, Object>{
+                        'mode' => 'fixed',
+                        'record' => new Map<String, Object>{ 'id' => String.valueOf(UserInfo.getUserId()) }
+                    })
+                })
+            );
+            insert broken;
+
+            Form_Submission__c saved = submit('WrongTarget', payloadBoth(new Map<String, Object>{ 'Name' => 'x' }));
+
+            assertRejected(saved, 'configured for ParentId is not valid');
+        }
+    }
+
+    // ============================================================
+    // Failures are recorded, not thrown
+    // ============================================================
+
+    @IsTest
+    static void testRecordRejectedBySalesforceIsStoredAsTheSubmissionError() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c saved = submit(FORM_CONTACT, payloadBoth(new Map<String, Object>{ 'FirstName' => 'No Last Name' }));
+
+            assertRejected(saved, 'Required fields are missing');
+        }
+    }
+
+    @IsTest
+    static void testOneBadSubmissionDoesNotBlockTheOthers() {
+        System.runAs(getRunAsUser()) {
+            Form_Submission__c good = makeSubmission(formId(FORM_ACCOUNT), payloadBoth(new Map<String, Object>{ 'Name' => 'Good One' }));
+            Form_Submission__c bad = makeSubmission(formId(FORM_CONTACT), payloadBoth(new Map<String, Object>{ 'FirstName' => 'Bad' }));
+
+            Test.startTest();
+            Database.SaveResult[] results = Database.insert(new List<Form_Submission__c>{ good, bad }, false);
+            Test.stopTest();
+
+            System.assert(results[0].isSuccess() && results[1].isSuccess(), 'Both submissions are stored.');
+            System.assert(String.isBlank(reloadSub(results[0].getId()).Error_Message__c));
+            System.assertEquals(1, trackingCountForSub(results[0].getId()));
+            System.assert(String.isNotBlank(reloadSub(results[1].getId()).Error_Message__c));
+        }
+    }
+
+    // ============================================================
+    // Existing outcome checks
     // ============================================================
 
     @IsTest
     static void testProcessAfterInsertHandlesNullOrEmptyList() {
         System.runAs(getRunAsUser()) {
-        Test.startTest();
-        FormSubmissionProcessor.processAfterInsert(null);
-        FormSubmissionProcessor.processAfterInsert(new List<Form_Submission__c>());
-        Test.stopTest();
+            Test.startTest();
+            FormSubmissionProcessor.processAfterInsert(null);
+            FormSubmissionProcessor.processAfterInsert(new List<Form_Submission__c>());
+            Test.stopTest();
 
-        System.assert(true, 'Processor should handle null/empty lists without throwing.');
+            System.assert(true, 'Processor should handle null/empty lists without throwing.');
         }
     }
 
     @IsTest
     static void testInsertFiltersInvalidSubmissionsNoExceptions() {
         System.runAs(getRunAsUser()) {
-        List<Form_Submission__c> subs = new List<Form_Submission__c>{
-            new Form_Submission__c(),
-            new Form_Submission__c(Form__c = getFormId()),
-            new Form_Submission__c(Payload_JSON__c = payloadBoth(new Map<String,Object>{ 'Name' => 'X' }))
-        };
+            List<Form_Submission__c> subs = new List<Form_Submission__c>{
+                new Form_Submission__c(),
+                new Form_Submission__c(Form__c = formId(FORM_ACCOUNT)),
+                new Form_Submission__c(Payload_JSON__c = payloadBoth(new Map<String, Object>{ 'Name' => 'X' }))
+            };
 
-        Test.startTest();
-        Database.SaveResult[] sr = Database.insert(subs, false);
-        Test.stopTest();
+            Test.startTest();
+            Database.SaveResult[] sr = Database.insert(subs, false);
+            Test.stopTest();
 
-        System.assertEquals(3, sr.size(), 'Should return 3 save results for 3 attempted inserts.');
+            System.assertEquals(3, sr.size(), 'Should return 3 save results for 3 attempted inserts.');
         }
     }
 
     @IsTest
     static void testMissingFormObjectApiOutcome() {
         System.runAs(getRunAsUser()) {
-        Form__c formNoObj = new Form__c(Name = 'NoObjForm');
-        insert formNoObj;
+            Form__c formNoObj = new Form__c(Name = 'NoObjForm');
+            insert formNoObj;
 
-        Form_Submission__c sub = makeSubmission(
-            formNoObj.Id,
-            payloadBoth(new Map<String,Object>{ 'Name' => 'Test Acc', 'Type' => 'Prospect' })
-        );
+            Form_Submission__c saved = submit('NoObjForm', payloadBoth(new Map<String, Object>{ 'Name' => 'Test Acc' }));
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
+            assertRejected(saved, 'No access to Form__c.Object_API_Name__c');
         }
     }
 
     @IsTest
     static void testUnknownObjectOutcome() {
         System.runAs(getRunAsUser()) {
-        Form__c badForm = new Form__c(Name = 'BadForm', Object_API_Name__c = INVALID_OBJECT_API);
-        insert badForm;
+            insert new Form__c(Name = 'BadForm', Object_API_Name__c = 'NonExistentObject__c');
 
-        Form_Submission__c sub = makeSubmission(
-            badForm.Id,
-            payloadBoth(new Map<String,Object>{ 'Name' => 'Test Acc', 'Type' => 'Prospect' })
-        );
+            Form_Submission__c saved = submit('BadForm', payloadBoth(new Map<String, Object>{ 'Name' => 'Test Acc' }));
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
+            assertRejected(saved, 'invalid Object_API_Name__c');
         }
     }
 
     @IsTest
     static void testInvalidJsonOutcome() {
         System.runAs(getRunAsUser()) {
-        Form_Submission__c sub = makeSubmission(getFormId(), TEST_JSON_INVALID);
-
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
+            assertRejected(submit(FORM_ACCOUNT, 'Not JSON'), 'Invalid JSON payload');
         }
     }
 
     @IsTest
     static void testNonObjectJsonOutcome() {
         System.runAs(getRunAsUser()) {
-        Form_Submission__c sub = makeSubmission(getFormId(), TEST_JSON_NON_OBJECT);
-
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
+            assertRejected(submit(FORM_ACCOUNT, '[]'), 'Payload must be a JSON object');
         }
     }
 
     @IsTest
     static void testEmptyPayloadOutcome() {
         System.runAs(getRunAsUser()) {
-        Form_Submission__c sub = makeSubmission(getFormId(), TEST_JSON_EMPTY);
+            Form_Submission__c saved = submit(FORM_ACCOUNT, '{}');
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
-        }
-    }
-
-    @IsTest
-    static void testInvalidOrWrongTypeIdOutcome() {
-        System.runAs(getRunAsUser()) {
-        Form_Submission__c badIdSub = makeSubmission(getFormId(), TEST_JSON_BAD_ID);
-
-        Id userId = UserInfo.getUserId();
-        String payloadWrongType = payloadUpdateBoth(
-            userId,
-            new Map<String,Object>{ 'Name' => 'Updated Acc' }
-        );
-        Form_Submission__c wrongTypeSub = makeSubmission(getFormId(), payloadWrongType);
-
-        List<Form_Submission__c> subs = new List<Form_Submission__c>{badIdSub, wrongTypeSub};
-
-        Test.startTest();
-        Database.SaveResult[] srs = Database.insert(subs, false);
-        Test.stopTest();
-
-        for (Database.SaveResult sr : srs) {
-            assertSubmissionOutcome(sr);
-        }
-        }
-    }
-
-    @IsTest
-    static void testContactMissingLastNameOutcome() {
-        System.runAs(getRunAsUser()) {
-        Form_Submission__c sub = makeSubmission(
-            getContactFormId(),
-            payloadBoth(new Map<String,Object>{ 'FirstName' => 'Test' })
-        );
-
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
-        }
-    }
-
-    @IsTest
-    static void testMultipleSubmissionsMixedOutcomes() {
-        System.runAs(getRunAsUser()) {
-        Form_Submission__c s1 = makeSubmission(getFormId(), payloadBoth(new Map<String,Object>{ 'Name' => 'Mixed Test 1' }));
-        Form_Submission__c s2 = makeSubmission(getFormId(), TEST_JSON_INVALID);
-        Form_Submission__c s3 = makeSubmission(getFormId(), payloadUpdateBoth(getAccountId(), new Map<String,Object>{ 'Name' => 'Updated Acc' }));
-
-        List<Form_Submission__c> subs = new List<Form_Submission__c>{s1, s2, s3};
-
-        Test.startTest();
-        Database.SaveResult[] srs = Database.insert(subs, false);
-        Test.stopTest();
-
-        for (Database.SaveResult sr : srs) {
-            assertSubmissionOutcome(sr);
-        }
+            // Account requires a Name, so Salesforce rejects the empty record.
+            System.assert(String.isNotBlank(saved.Error_Message__c), 'An empty submission must be reported as an error.');
         }
     }
 
     @IsTest
     static void testLongPayloadOutcome() {
         System.runAs(getRunAsUser()) {
-        String longPayload = '{"Name":"Test"}';
-        while (longPayload.length() <= 131072) {
-            longPayload += ' ';
-        }
+            String longPayload = '{"Name":"' + 'x'.repeat(131080) + '"}';
 
-        Form_Submission__c sub = makeSubmission(getFormId(), longPayload);
+            Test.startTest();
+            Database.SaveResult sr = Database.insert(makeSubmission(formId(FORM_ACCOUNT), longPayload), false);
+            Test.stopTest();
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSubmissionOutcome(sr);
+            // Either the field length refuses the insert, or the processor rejects the payload.
+            if (sr.isSuccess()) {
+                assertRejected(reloadSub(sr.getId()), 'exceeds maximum allowed size');
+            }
         }
     }
 
-    @IsTest
-    static void testSuccessfulAccountInsertWithTypes() {
-        System.runAs(getRunAsUser()) {
-        Id parentId = getParentAccountId();
-        Map<String, Object> fields = new Map<String, Object>{
-            'Name' => 'Test Acc Types',
-            'AnnualRevenue' => 100000.5,
-            'NumberOfEmployees' => 100,
-            'ParentId' => parentId,
-            'Site' => 'Test Site'
-        };
-        Form_Submission__c sub = makeSubmission(getFormId(), payloadBoth(fields));
-
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSuccessfulInsert(sr, 'Account', fields);
-        }
-    }
+    // ============================================================
+    // Typed inserts
+    // ============================================================
 
     @IsTest
     static void testSuccessfulContactInsert() {
         System.runAs(getRunAsUser()) {
-        Map<String, Object> fields = new Map<String, Object>{
-            'FirstName' => 'Test',
-            'LastName' => 'Contact',
-            'Birthdate' => '1990-01-01',
-            'Email' => 'test@contact.com'
-        };
-        Form_Submission__c sub = makeSubmission(getContactFormId(), payloadBoth(fields));
+            Form_Submission__c saved = submit(FORM_CONTACT, payloadBoth(new Map<String, Object>{
+                'FirstName' => 'Test',
+                'LastName' => 'Contact',
+                'Birthdate' => '1990-01-01',
+                'Email' => 'test@contact.com'
+            }));
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSuccessfulInsert(sr, 'Contact', fields);
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Contact created = (Contact) createdRecord(saved, 'Contact', new List<String>{ 'FirstName', 'LastName', 'Birthdate', 'Email' });
+            System.assertEquals('Contact', created.LastName);
+            System.assertEquals(Date.valueOf('1990-01-01'), created.Birthdate);
+            System.assertEquals('test@contact.com', created.Email);
         }
     }
 
     @IsTest
     static void testSuccessfulOpportunityInsert() {
         System.runAs(getRunAsUser()) {
-        Map<String, Object> fields = new Map<String, Object>{
-            'Name' => 'Test Opp',
-            'CloseDate' => '2024-01-01',
-            'StageName' => 'Prospecting',
-            'Amount' => 5000.5,
-            'Probability' => 50
-        };
-        Form_Submission__c sub = makeSubmission(getOppFormId(), payloadBoth(fields));
+            Form_Submission__c saved = submit(FORM_OPP, payloadBoth(new Map<String, Object>{
+                'Name' => 'Test Opp',
+                'CloseDate' => '2024-01-01',
+                'StageName' => 'Prospecting',
+                'Amount' => 5000.5,
+                'Probability' => 50
+            }));
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSuccessfulInsert(sr, 'Opportunity', fields);
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Opportunity created = (Opportunity) createdRecord(saved, 'Opportunity', new List<String>{ 'Name', 'Amount', 'CloseDate' });
+            System.assertEquals('Test Opp', created.Name);
+            System.assertEquals(5000.5, created.Amount);
         }
     }
 
     @IsTest
     static void testSuccessfulEventInsert() {
         System.runAs(getRunAsUser()) {
-        Map<String, Object> fields = new Map<String, Object>{
-            'Subject' => 'Test Event',
-            'StartDateTime' => '2024-01-01T12:00:00Z',
-            'EndDateTime' => '2024-01-01T13:00:00Z'
-        };
-        Form_Submission__c sub = makeSubmission(getEventFormId(), payloadBoth(fields));
+            Form_Submission__c saved = submit(FORM_EVENT, payloadBoth(new Map<String, Object>{
+                'Subject' => 'Test Event',
+                'StartDateTime' => '2024-01-01T12:00:00Z',
+                'EndDateTime' => '2024-01-01T13:00:00Z'
+            }));
 
-        Test.startTest();
-        Database.SaveResult sr = Database.insert(sub, false);
-        Test.stopTest();
-
-        assertSuccessfulInsert(sr, 'Event', fields);
+            System.assert(String.isBlank(saved.Error_Message__c), 'Unexpected error: ' + saved.Error_Message__c);
+            Event created = (Event) createdRecord(saved, 'Event', new List<String>{ 'Subject', 'StartDateTime' });
+            System.assertEquals('Test Event', created.Subject);
+            System.assertNotEquals(null, created.StartDateTime);
         }
     }
+
+    // ============================================================
+    // Value conversion
+    // ============================================================
 
     @IsTest
     static void testConvertValueCoversAllBranches() {
         System.runAs(getRunAsUser()) {
-        Schema.DescribeFieldResult fdBool = Contact.DoNotCall.getDescribe();
-        Schema.DescribeFieldResult fdInt  = Account.NumberOfEmployees.getDescribe();
-        Schema.DescribeFieldResult fdDec  = Account.AnnualRevenue.getDescribe();
-        Schema.DescribeFieldResult fdDate = Contact.Birthdate.getDescribe();
-        Schema.DescribeFieldResult fdDt   = Event.StartDateTime.getDescribe();
-        Schema.DescribeFieldResult fdText = Account.Name.getDescribe();
-        Schema.DescribeFieldResult fdRef  = Account.ParentId.getDescribe();
+            Schema.DescribeFieldResult fdBool = Contact.DoNotCall.getDescribe();
+            Schema.DescribeFieldResult fdInt  = Account.NumberOfEmployees.getDescribe();
+            Schema.DescribeFieldResult fdDec  = Account.AnnualRevenue.getDescribe();
+            Schema.DescribeFieldResult fdDate = Contact.Birthdate.getDescribe();
+            Schema.DescribeFieldResult fdDt   = Event.StartDateTime.getDescribe();
+            Schema.DescribeFieldResult fdText = Account.Name.getDescribe();
+            Schema.DescribeFieldResult fdRef  = Account.ParentId.getDescribe();
 
-        Test.startTest();
+            Test.startTest();
 
-        System.assertEquals(null, FormSubmissionProcessor.convertValue(null, null), 'Null input should return null.');
-        System.assertEquals('test', FormSubmissionProcessor.convertValue('test', null), 'Null describe should return original.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue(null, null), 'Null input should return null.');
+            System.assertEquals('test', FormSubmissionProcessor.convertValue('test', null), 'Null describe should return original.');
 
-        System.assertEquals(true, FormSubmissionProcessor.convertValue('true', fdBool), 'Boolean true should convert.');
-        System.assertEquals(false, FormSubmissionProcessor.convertValue('false', fdBool), 'Boolean false should convert.');
+            System.assertEquals(true, FormSubmissionProcessor.convertValue('true', fdBool), 'Boolean true should convert.');
+            System.assertEquals(false, FormSubmissionProcessor.convertValue('false', fdBool), 'Boolean false should convert.');
 
-        System.assertEquals(10, FormSubmissionProcessor.convertValue('10', fdInt), 'Integer should convert.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdInt), 'Invalid integer should return null.');
+            System.assertEquals(10, FormSubmissionProcessor.convertValue('10', fdInt), 'Integer should convert.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdInt), 'Invalid integer should return null.');
 
-        System.assertEquals(10.5, FormSubmissionProcessor.convertValue('10.5', fdDec), 'Decimal should convert.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdDec), 'Invalid decimal should return null.');
+            System.assertEquals(10.5, FormSubmissionProcessor.convertValue('10.5', fdDec), 'Decimal should convert.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdDec), 'Invalid decimal should return null.');
 
-        Date testDate = Date.valueOf('2023-01-01');
-        System.assertEquals(testDate, FormSubmissionProcessor.convertValue('2023-01-01', fdDate), 'Date should parse.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdDate), 'Invalid date should return null.');
+            Date testDate = Date.valueOf('2023-01-01');
+            System.assertEquals(testDate, FormSubmissionProcessor.convertValue('2023-01-01', fdDate), 'Date should parse.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdDate), 'Invalid date should return null.');
 
-        Datetime expectedDt = Datetime.valueOf('2023-01-01 12:00:00');
-        System.assertEquals(expectedDt, FormSubmissionProcessor.convertValue('2023-01-01 12:00:00', fdDt), 'Datetime should parse.');
+            Datetime expectedDt = Datetime.valueOf('2023-01-01 12:00:00');
+            System.assertEquals(expectedDt, FormSubmissionProcessor.convertValue('2023-01-01 12:00:00', fdDt), 'Datetime should parse.');
 
-        System.assertNotEquals(null, FormSubmissionProcessor.convertValue('2023-01-01T12:00:00Z', fdDt), 'ISO datetime should parse.');
-        System.assertNotEquals(null, FormSubmissionProcessor.convertValue('2023-01-01T12:00:00.123Z', fdDt), 'ISO datetime with ms should parse.');
+            System.assertNotEquals(null, FormSubmissionProcessor.convertValue('2023-01-01T12:00:00Z', fdDt), 'ISO datetime should parse.');
+            System.assertNotEquals(null, FormSubmissionProcessor.convertValue('2023-01-01T12:00:00.123Z', fdDt), 'ISO datetime with ms should parse.');
 
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdDt), 'Invalid datetime should return null.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('', fdDt), 'Empty datetime should return null.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('   ', fdDt), 'Blank datetime should return null.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('bad', fdDt), 'Invalid datetime should return null.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('', fdDt), 'Empty datetime should return null.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('   ', fdDt), 'Blank datetime should return null.');
 
-        Id accId = getAccountId();
-        System.assertEquals(accId, FormSubmissionProcessor.convertValue(String.valueOf(accId), fdRef), 'Reference should convert.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('badId', fdRef), 'Invalid reference should return null.');
-        System.assertEquals(null, FormSubmissionProcessor.convertValue('', fdRef), 'Empty reference should return null.');
+            Id accId = accountId('Original Acc');
+            System.assertEquals(accId, FormSubmissionProcessor.convertValue(String.valueOf(accId), fdRef), 'Reference should convert.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('badId', fdRef), 'Invalid reference should return null.');
+            System.assertEquals(null, FormSubmissionProcessor.convertValue('', fdRef), 'Empty reference should return null.');
 
-        System.assertEquals('test value', FormSubmissionProcessor.convertValue('test value', fdText), 'Text should remain unchanged.');
+            System.assertEquals('test value', FormSubmissionProcessor.convertValue('test value', fdText), 'Text should remain unchanged.');
 
-        Test.stopTest();
+            Test.stopTest();
         }
     }
 
     @IsTest
     static void testCurrencyConversion() {
         System.runAs(getRunAsUser()) {
-        Schema.DescribeFieldResult fdCurrency = Account.AnnualRevenue.getDescribe();
+            Schema.DescribeFieldResult fdCurrency = Account.AnnualRevenue.getDescribe();
 
-        Test.startTest();
-        Decimal currencyVal = (Decimal)FormSubmissionProcessor.convertValue('50000.75', fdCurrency);
-        Test.stopTest();
+            Test.startTest();
+            Decimal currencyVal = (Decimal) FormSubmissionProcessor.convertValue('50000.75', fdCurrency);
+            Test.stopTest();
 
-        System.assertEquals(50000.75, currencyVal, 'Currency should convert to Decimal correctly.');
+            System.assertEquals(50000.75, currencyVal, 'Currency should convert to Decimal correctly.');
         }
     }
 }

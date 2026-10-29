@@ -104,4 +104,22 @@ private class FormEditorMetadataServiceTest {
             System.assertEquals(true, field.containsKey('required'));
         }
     }
+
+    @IsTest
+    static void fetchFieldsListsTheObjectsALookupPointsTo() {
+        System.runAs(runAsUser()) {
+            List<Map<String, Object>> fields = FormEditorMetadataService.fetchFieldsForObject('Account');
+
+            Map<String, Object> parent;
+            Map<String, Object> name;
+            for (Map<String, Object> f : fields) {
+                if (f.get('name') == 'parentid') { parent = f; }
+                if (f.get('name') == 'name') { name = f; }
+            }
+            System.assertNotEquals(null, parent, 'Account.ParentId is a createable lookup.');
+            System.assertEquals('REFERENCE', parent.get('type'));
+            System.assertEquals(new List<String>{ 'Account' }, (List<String>) parent.get('referenceTo'));
+            System.assertEquals(0, ((List<String>) name.get('referenceTo')).size(), 'Only lookups list targets.');
+        }
+    }
 }

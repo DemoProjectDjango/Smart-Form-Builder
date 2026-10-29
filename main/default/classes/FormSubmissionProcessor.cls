@@ -2,6 +2,7 @@
 public with sharing class FormSubmissionProcessor {
 
     private static final Integer MAX_ERROR_LEN = 131072;
+    private static final Integer MAX_PAYLOAD_FIELDS = 200;
     private static Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
     private static Map<String, Schema.DescribeSObjectResult> objectDescribeCache =
         new Map<String, Schema.DescribeSObjectResult>();
@@ -27,27 +28,25 @@ public with sharing class FormSubmissionProcessor {
      */
     private without sharing class SystemModeExecutor {
 
-        Map<Id, String> fetchFormObjectApiNames(Set<Id> formIds) {
-            Map<Id, String> outMap = new Map<Id, String>();
+        Map<Id, Form__c> fetchForms(Set<Id> formIds) {
+            Map<Id, Form__c> outMap = new Map<Id, Form__c>();
             if (formIds == null || formIds.isEmpty()) { return outMap; }
             for (Form__c f : [
-                SELECT Id, Object_API_Name__c
+                SELECT Id, Object_API_Name__c, Field_Config__c
                 FROM Form__c
                 WHERE Id IN :formIds
                 WITH SYSTEM_MODE
             ]) {
                 if (f == null || String.isBlank(f.Object_API_Name__c)) { continue; }
-                outMap.put(f.Id, f.Object_API_Name__c.trim());
+                outMap.put(f.Id, f);
             }
             return outMap;
         }
 
+        // Not all-or-none: a rejected record is reported per record (and stored as the
+        // submission's error message) instead of throwing out of the trigger.
         Database.SaveResult[] executeTargetInsert(List<SObject> records) {
-            return Database.insert(records, AccessLevel.SYSTEM_MODE);
-        }
-
-        Database.SaveResult[] executeTargetUpdate(List<SObject> records) {
-            return Database.update(records, AccessLevel.SYSTEM_MODE);
+            return Database.insert(records, false, AccessLevel.SYSTEM_MODE);
         }
 
         void insertTrackingRecords(List<Form_Submission_Record__c> tracking) {
@@ -70,7 +69,6 @@ public with sharing class FormSubmissionProcessor {
     private class WorkItem {
         public Id submissionId;
         public String objectApiName;
-        public Boolean isUpdate;
         public Id targetRecordId;
         public SObject record;
         public String errorMessage;
@@ -78,11 +76,23 @@ public with sharing class FormSubmissionProcessor {
 
     private class DmlContext {
         public Map<String, Boolean> canCreateByObj = new Map<String, Boolean>();
-        public Map<String, Boolean> canUpdateByObj = new Map<String, Boolean>();
         public List<WorkItem> insertItems   = new List<WorkItem>();
         public List<SObject>  insertRecords = new List<SObject>();
-        public List<WorkItem> updateItems   = new List<WorkItem>();
-        public List<SObject>  updateRecords = new List<SObject>();
+    }
+
+    // Everything needed to turn one submission into a record.
+    private class BuildContext {
+        public Map<Id, String> formToObject;
+        public Map<Id, Map<String, FormFieldConfig.Field>> configByForm;
+        public Map<String, Schema.SObjectType> typeByName;
+    }
+
+    // One configured field of the record being built.
+    private class FieldTarget {
+        public SObject record;
+        public String fieldName;
+        public Schema.DescribeFieldResult describe;
+        public FormFieldConfig.Field config;
     }
 
     // ── Entry point ───────────────────────────────────────────────────────────
@@ -94,17 +104,21 @@ public with sharing class FormSubmissionProcessor {
         if (candidates.isEmpty()) { return; }
 
         Set<Id> formIds = collectFormIds(candidates);
-        Map<Id, String> formToObjectRaw = exec.fetchFormObjectApiNames(formIds);
+        Map<Id, Form__c> forms = exec.fetchForms(formIds);
 
-        if (formToObjectRaw.isEmpty()) {
+        if (forms.isEmpty()) {
             writeSameError(candidates, 'No access to Form__c.Object_API_Name__c or forms not found.');
             return;
         }
 
         Map<Id, String> formToObject = new Map<Id, String>();
-        for (Id fid : formToObjectRaw.keySet()) {
-            String canon = canonicalObjectApiName(formToObjectRaw.get(fid));
-            if (String.isNotBlank(canon)) { formToObject.put(fid, canon); }
+        Map<Id, Map<String, FormFieldConfig.Field>> configByForm = new Map<Id, Map<String, FormFieldConfig.Field>>();
+        for (Id fid : forms.keySet()) {
+            String canon = canonicalObjectApiName(forms.get(fid).Object_API_Name__c.trim());
+            if (String.isNotBlank(canon)) {
+                formToObject.put(fid, canon);
+                configByForm.put(fid, FormFieldConfig.parse(forms.get(fid).Field_Config__c));
+            }
         }
 
         if (formToObject.isEmpty()) {
@@ -112,7 +126,7 @@ public with sharing class FormSubmissionProcessor {
             return;
         }
 
-        List<WorkItem> items = buildWorkItems(candidates, formToObject);
+        List<WorkItem> items = buildWorkItems(candidates, formToObject, configByForm);
         runTargetDml(items);
         insertTracking(items);
         updateSubmissionErrors(items);
@@ -141,7 +155,8 @@ public with sharing class FormSubmissionProcessor {
 
     private static List<WorkItem> buildWorkItems(
         List<Form_Submission__c> candidates,
-        Map<Id, String> formToObject
+        Map<Id, String> formToObject,
+        Map<Id, Map<String, FormFieldConfig.Field>> configByForm
     ) {
         List<WorkItem> items = new List<WorkItem>();
         Set<String> objectNames = new Set<String>();
@@ -155,28 +170,28 @@ public with sharing class FormSubmissionProcessor {
             Schema.SObjectType t = globalDescribe.get(name);
             if (t != null) { typeByName.put(name, t); }
         }
+        BuildContext ctx = new BuildContext();
+        ctx.formToObject = formToObject;
+        ctx.configByForm = configByForm;
+        ctx.typeByName = typeByName;
         for (Form_Submission__c sub : candidates) {
-            items.add(buildSingleWorkItem(sub, formToObject, typeByName));
+            items.add(buildSingleWorkItem(sub, ctx));
         }
         return items;
     }
 
-    private static WorkItem buildSingleWorkItem(
-        Form_Submission__c sub,
-        Map<Id, String> formToObject,
-        Map<String, Schema.SObjectType> typeByName
-    ) {
+    private static WorkItem buildSingleWorkItem(Form_Submission__c sub, BuildContext ctx) {
         WorkItem wi = new WorkItem();
         wi.submissionId = (sub == null) ? null : sub.Id;
 
-        if (sub == null || !formToObject.containsKey(sub.Form__c)) {
+        if (sub == null || !ctx.formToObject.containsKey(sub.Form__c)) {
             wi.errorMessage = 'No matching form or object mapping.';
             return wi;
         }
 
-        wi.objectApiName = formToObject.get(sub.Form__c);
+        wi.objectApiName = ctx.formToObject.get(sub.Form__c);
 
-        if (!typeByName.containsKey(wi.objectApiName)) {
+        if (!ctx.typeByName.containsKey(wi.objectApiName)) {
             wi.errorMessage = 'Unknown or inaccessible object: ' + wi.objectApiName;
             return wi;
         }
@@ -186,68 +201,148 @@ public with sharing class FormSubmissionProcessor {
             return wi;
         }
 
-        Map<String, Object> payload;
-        try {
-            Object raw = JSON.deserializeUntyped(sub.Payload_JSON__c);
-            if (!(raw instanceof Map<String, Object>)) {
-                wi.errorMessage = 'Payload must be a JSON object.';
-                return wi;
-            }
-            payload = (Map<String, Object>) raw;
-        } catch (Exception ex) {
-            wi.errorMessage = 'Invalid JSON payload: ' + ex.getMessage();
-            return wi;
-        }
+        Map<String, Object> payload = readPayload(sub.Payload_JSON__c, wi);
+        if (payload == null) { return wi; }
 
-        String recordIdStr = payload.containsKey('Id') ? String.valueOf(payload.get('Id')) : null;
-        wi.isUpdate      = String.isNotBlank(recordIdStr) && recordIdStr != 'null';
-        wi.targetRecordId = wi.isUpdate ? safeToId(recordIdStr) : null;
+        Map<String, FormFieldConfig.Field> config = ctx.configByForm.get(sub.Form__c);
+        Map<String, Object> fields = submittedFields(payload);
+        wi.errorMessage = checkSubmission(config, payload, fields);
+        if (String.isNotBlank(wi.errorMessage)) { return wi; }
 
-        if (wi.isUpdate && wi.targetRecordId == null) {
-            wi.errorMessage = 'Payload contains an invalid record Id.';
-            return wi;
-        }
-
-        Schema.SObjectType sot = typeByName.get(wi.objectApiName);
-        wi.record = wi.isUpdate ? sot.newSObject(wi.targetRecordId) : sot.newSObject();
-
-        Object fieldsObj = payload.get('fields');
-        Map<String, Object> fields;
-        if (fieldsObj instanceof Map<String, Object>) {
-            fields = (Map<String, Object>) fieldsObj;
-        } else {
-            fields = payload.clone();
-            fields.remove('Id');
-            fields.remove('fields');
-        }
-
-        String fieldErr = applyPayloadFields(wi.record, wi.objectApiName, fields);
-        if (String.isNotBlank(fieldErr)) { wi.errorMessage = fieldErr; }
+        wi.record = ctx.typeByName.get(wi.objectApiName).newSObject();
+        wi.errorMessage = applyPayloadFields(wi, fields, config);
         return wi;
     }
 
-    private static String applyPayloadFields(
-        SObject record, String objectApiName, Map<String, Object> payload
-    ) {
-        if (record == null || String.isBlank(objectApiName) || payload == null) {
-            return 'Missing target record or payload.';
-        }
-        Map<String, Schema.DescribeFieldResult> fieldMap = getFieldMap(objectApiName);
-        if (fieldMap.isEmpty()) { return null; }
-
-        for (String rawFieldName : payload.keySet()) {
-            if (rawFieldName == null || rawFieldName == 'Id' || rawFieldName == 'id') { continue; }
-            String fieldName = canonicalFieldApiName(objectApiName, rawFieldName);
-            if (String.isBlank(fieldName) || fieldName == 'Id') { continue; }
-            Schema.DescribeFieldResult fd = fieldMap.get(fieldName);
-            if (fd == null) { continue; }
-            try {
-                record.put(fieldName, convertValue(payload.get(rawFieldName), fd));
-            } catch (Exception ex) {
-                return 'Failed to set field ' + fieldName + ': ' + ex.getMessage();
-            }
+    // Parses the payload; on failure records the reason on the work item and returns null.
+    private static Map<String, Object> readPayload(String payloadJson, WorkItem wi) {
+        try {
+            Object raw = JSON.deserializeUntyped(payloadJson);
+            if (raw instanceof Map<String, Object>) { return (Map<String, Object>) raw; }
+            wi.errorMessage = 'Payload must be a JSON object.';
+        } catch (Exception ex) {
+            wi.errorMessage = 'Invalid JSON payload: ' + ex.getMessage();
         }
         return null;
+    }
+
+    // The visitor's answers: either the payload itself or its nested "fields" object.
+    private static Map<String, Object> submittedFields(Map<String, Object> payload) {
+        Object fieldsObj = payload.get('fields');
+        if (fieldsObj instanceof Map<String, Object>) { return (Map<String, Object>) fieldsObj; }
+        Map<String, Object> fields = payload.clone();
+        fields.remove('fields');
+        return fields;
+    }
+
+    // Rules every public submission must meet before any field is read. Null when acceptable.
+    private static String checkSubmission(
+        Map<String, FormFieldConfig.Field> config, Map<String, Object> payload, Map<String, Object> fields
+    ) {
+        if (config == null || config.isEmpty()) {
+            return 'This form has no saved field configuration. Open it in the Form Builder and save it again.';
+        }
+        if (hasIdKey(payload) || hasIdKey(fields)) {
+            return 'Updating existing records is not allowed from public forms.';
+        }
+        if (fields.size() > MAX_PAYLOAD_FIELDS) {
+            return 'The submission contains too many fields.';
+        }
+        return null;
+    }
+
+    private static Boolean hasIdKey(Map<String, Object> values) {
+        for (String key : values.keySet()) {
+            if (key != null && key.trim().equalsIgnoreCase('Id')) { return true; }
+        }
+        return false;
+    }
+
+    // Writes only the fields the form is configured for (the allow-list). Anything else the
+    // visitor sent is ignored. Lookup fields are written only from the admin's configuration:
+    // a fixed record, or one of the selected choices submitted as an opaque key.
+    private static String applyPayloadFields(
+        WorkItem wi, Map<String, Object> payload, Map<String, FormFieldConfig.Field> config
+    ) {
+        Map<String, Schema.DescribeFieldResult> fieldMap = getFieldMap(wi.objectApiName);
+        if (fieldMap.isEmpty()) { return null; }
+
+        Map<String, Object> submitted = new Map<String, Object>();
+        for (String key : payload.keySet()) {
+            if (key != null) { submitted.put(key.trim().toLowerCase(), payload.get(key)); }
+        }
+
+        for (FormFieldConfig.Field cfg : config.values()) {
+            String fieldName = canonicalFieldApiName(wi.objectApiName, cfg.apiName);
+            Schema.DescribeFieldResult fd = fieldName == null ? null : fieldMap.get(fieldName);
+            if (fd == null || !fd.isCreateable()) { continue; }
+            FieldTarget target = new FieldTarget();
+            target.record = wi.record;
+            target.fieldName = fieldName;
+            target.describe = fd;
+            target.config = cfg;
+            Object raw = submitted.get(cfg.apiName.toLowerCase());
+            String error = fd.getType() == Schema.DisplayType.REFERENCE
+                ? applyLookup(target, raw)
+                : applyValue(target, raw);
+            if (error != null) { return error; }
+        }
+        return null;
+    }
+
+    private static String applyValue(FieldTarget target, Object raw) {
+        if (raw == null) { return null; }
+        if (!isAllowedPicklistValue(raw, target)) {
+            return 'Invalid value for ' + target.config.apiName + '.';
+        }
+        try {
+            target.record.put(target.fieldName, convertValue(raw, target.describe));
+        } catch (Exception ex) {
+            return 'Failed to set field ' + target.config.apiName + ': ' + ex.getMessage();
+        }
+        return null;
+    }
+
+    private static Boolean isAllowedPicklistValue(Object raw, FieldTarget target) {
+        Schema.DisplayType t = target.describe.getType();
+        if ((t != Schema.DisplayType.PICKLIST && t != Schema.DisplayType.MULTIPICKLIST) || target.config.picklistValues.isEmpty()) {
+            return true;
+        }
+        String text = raw instanceof List<Object> ? toMultiPicklist(raw) : String.valueOf(raw);
+        if (String.isBlank(text)) { return true; }
+        List<String> parts = t == Schema.DisplayType.MULTIPICKLIST ? text.split(';') : new List<String>{ text };
+        for (String part : parts) {
+            if (!target.config.picklistValues.contains(part.trim())) { return false; }
+        }
+        return true;
+    }
+
+    private static String applyLookup(FieldTarget target, Object raw) {
+        FormFieldConfig.Field cfg = target.config;
+        Id chosen;
+        if (cfg.lookupMode == FormFieldConfig.MODE_FIXED) {
+            chosen = cfg.fixedId;
+        } else if (cfg.lookupMode == FormFieldConfig.MODE_CHOICES) {
+            String key = raw == null ? null : String.valueOf(raw).trim();
+            if (String.isBlank(key)) { return null; }
+            chosen = cfg.choices.get(key);
+            if (chosen == null) { return 'Invalid selection for ' + cfg.apiName + '.'; }
+        } else {
+            // Not configured: the field is hidden from visitors, so nothing they send is used.
+            return null;
+        }
+        if (chosen == null || !referencesTarget(target.describe, chosen)) {
+            return 'The record configured for ' + cfg.apiName + ' is not valid.';
+        }
+        target.record.put(target.fieldName, chosen);
+        return null;
+    }
+
+    private static Boolean referencesTarget(Schema.DescribeFieldResult fd, Id chosen) {
+        for (Schema.SObjectType allowed : fd.getReferenceTo()) {
+            if (allowed == chosen.getSobjectType()) { return true; }
+        }
+        return false;
     }
 
     // ── DML ───────────────────────────────────────────────────────────────────
@@ -257,27 +352,15 @@ public with sharing class FormSubmissionProcessor {
         DmlContext ctx = new DmlContext();
         for (WorkItem wi : items) {
             if (!isDmlReady(wi)) { continue; }
-            if (wi.isUpdate) {
-                if (!canOperate(wi.objectApiName, ctx.canUpdateByObj)) {
-                    wi.errorMessage = 'Unknown or inaccessible object for update: ' + wi.objectApiName;
-                    continue;
-                }
-                ctx.updateItems.add(wi);
-                ctx.updateRecords.add(wi.record);
-            } else {
-                if (!canOperate(wi.objectApiName, ctx.canCreateByObj)) {
-                    wi.errorMessage = 'Unknown or inaccessible object for insert: ' + wi.objectApiName;
-                    continue;
-                }
-                ctx.insertItems.add(wi);
-                ctx.insertRecords.add(wi.record);
+            if (!canOperate(wi.objectApiName, ctx.canCreateByObj)) {
+                wi.errorMessage = 'Unknown or inaccessible object for insert: ' + wi.objectApiName;
+                continue;
             }
+            ctx.insertItems.add(wi);
+            ctx.insertRecords.add(wi.record);
         }
         if (!ctx.insertRecords.isEmpty()) {
-            applySaveResults(ctx.insertItems, exec.executeTargetInsert(ctx.insertRecords), false);
-        }
-        if (!ctx.updateRecords.isEmpty()) {
-            applySaveResults(ctx.updateItems, exec.executeTargetUpdate(ctx.updateRecords), true);
+            applySaveResults(ctx.insertItems, exec.executeTargetInsert(ctx.insertRecords));
         }
     }
 
@@ -293,9 +376,7 @@ public with sharing class FormSubmissionProcessor {
         return cache.get(objectApiName);
     }
 
-    private static void applySaveResults(
-        List<WorkItem> alignedItems, Database.SaveResult[] results, Boolean isUpdate
-    ) {
+    private static void applySaveResults(List<WorkItem> alignedItems, Database.SaveResult[] results) {
         if (alignedItems == null || results == null) { return; }
         Integer size = Math.min(alignedItems.size(), results.size());
         for (Integer i = 0; i < size; i++) {
@@ -303,7 +384,7 @@ public with sharing class FormSubmissionProcessor {
             Database.SaveResult sr = results[i];
             if (wi == null) { continue; }
             if (sr != null && sr.isSuccess()) {
-                wi.targetRecordId = isUpdate ? wi.targetRecordId : sr.getId();
+                wi.targetRecordId = sr.getId();
             } else {
                 wi.errorMessage = firstError(sr);
             }
@@ -328,7 +409,7 @@ public with sharing class FormSubmissionProcessor {
             tr.Form_Submission__c = wi.submissionId;
             tr.Record_Id__c       = wi.targetRecordId;
             tr.Object_API_Name__c = wi.objectApiName;
-            tr.Action__c          = (wi.isUpdate == true) ? 'Updated' : 'Created';
+            tr.Action__c          = 'Created';
             tracking.add(tr);
         }
         exec.insertTrackingRecords(tracking);

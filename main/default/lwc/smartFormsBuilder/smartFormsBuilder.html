@@ -92,6 +92,7 @@
                                                 <div class="frow__label">
                                                     {row.label}<template lwc:if={row.required}> <span class="star">*</span></template>
                                                     <span class="chip">{row.type}</span>
+                                                    <template lwc:if={row.isLookup}><span class={row.lookupBadgeClass}>{row.lookupBadge}</span></template>
                                                     <template lwc:if={row.hasDependency}>
                                                         <button
                                                             type="button"
@@ -186,15 +187,24 @@
                         <input class="input" id="d-label" data-id="d-label" type="text" maxlength="255" value={draft.label} oninput={handleDraftLabel} />
                         <span class="hint">The question visitors see.</span>
                     </div>
-                    <div class="field">
+                    <div class="field" lwc:if={showPlaceholder}>
                         <label for="d-ph">Placeholder text</label>
                         <input class="input" id="d-ph" type="text" maxlength="255" value={draft.placeholder} placeholder="Shown inside the empty box" oninput={handleDraftPlaceholder} />
                     </div>
-                    <label class="switch">
+                    <label class="switch" lwc:if={showRequiredSwitch}>
                         <input type="checkbox" checked={draft.required} onchange={handleDraftRequired} />Make this field required
                     </label>
 
-                    <div class="depbox">
+                    <template lwc:if={draftIsLookup}>
+                        <c-smart-forms-lookup-config
+                            field-label={draft.label}
+                            reference-to={draftReferenceTo}
+                            value={draftLookup}
+                            onlookupchange={handleLookupChange}>
+                        </c-smart-forms-lookup-config>
+                    </template>
+
+                    <div class="depbox" lwc:if={showDependency}>
                         <label class="switch">
                             <input type="checkbox" checked={draftDependentChecked} onchange={handleDraftDependent} />Only show this field for certain answers
                         </label>

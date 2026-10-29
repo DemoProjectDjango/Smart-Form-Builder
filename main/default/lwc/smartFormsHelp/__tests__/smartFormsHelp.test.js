@@ -19,7 +19,7 @@ describe('c-smart-forms-help', () => {
         await flush();
         expect(el.shadowRoot.querySelectorAll('.flow__steps li').length).toBe(5);
         expect(el.shadowRoot.querySelectorAll('.task').length).toBe(6);
-        expect(el.shadowRoot.querySelectorAll('.faq details').length).toBe(15);
+        expect(el.shadowRoot.querySelectorAll('.faq details').length).toBe(16);
         expect(el.shadowRoot.querySelectorAll('.faq__group').length).toBe(4);
         expect(el.shadowRoot.querySelector('.task li b').textContent).toBe('Get started');
     });
@@ -33,7 +33,7 @@ describe('c-smart-forms-help', () => {
         await flush();
         const questions = Array.from(el.shadowRoot.querySelectorAll('.faq summary')).map((s) => s.textContent);
         expect(questions.length).toBeGreaterThan(0);
-        expect(questions.length).toBeLessThan(15);
+        expect(questions.length).toBeLessThan(16);
         expect(el.shadowRoot.querySelector('.faq details').open).toBe(true);
     });
 

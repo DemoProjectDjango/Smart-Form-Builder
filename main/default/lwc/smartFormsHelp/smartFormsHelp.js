@@ -89,11 +89,12 @@ const FAQ = [
     ['Building forms', 'What\'s the difference between \u201cApply changes\u201d and \u201cSave & generate form\u201d?', '**Apply changes** confirms your field edits in the builder. **Save & generate form** saves the form to Salesforce and updates the public page. Visitors only see changes after you save.'],
     ['Building forms', 'Why did the version number go up?', 'Every time you save an existing form, its version goes up by one. If you create a new form with the same name as an old one, it gets the next version number.'],
     ['Building forms', 'Which kinds of fields can I use?', 'Text, email, phone, website, numbers, currency, percent, picklists, multi-select picklists, dates, date and time, checkboxes and long text.'],
+    ['Building forms', 'Why are lookup fields (like Owner) not on my published form?', 'Lookup fields stay **hidden from visitors** until you configure them, because visitors cannot know record Ids. Open the field with the pencil and choose **Fixed record** (applied automatically, optionally shown by name) or **Choose from selected records** (visitors pick from up to 25 names you select). Visitors never see or send record Ids.'],
     ['Building forms', 'Can a field depend on more than one question?', 'Not today. A field can depend on one picklist or checkbox, and you can pick several answers that show it.'],
     ['Sharing', 'Why does it say \u201cSite URL not configured\u201d?', 'The link address from setup step 5 is missing. Add your Site URL followed by `?id=` in Custom Settings \u2192 Form Builder Settings.'],
     ['Sharing', 'A visitor sees \u201cForm Not Found\u201d. Why?', 'The link is wrong or incomplete, or the form was deleted. Copy the link again from the Forms tab and resend it.'],
     ['Submissions', 'A submission shows \u201cError\u201d. What do I do?', 'Open it in **Submissions**. The error message says what Salesforce rejected, for example \u201cRequired fields are missing: [Subject]\u201d. Add or fix that field on the form, then save it so new submissions work.'],
-    ['Submissions', 'What does \u201cUpdated Lead\u201d mean?', 'If a submission includes the Id of an existing record, Smart Forms updates that record instead of creating a new one.'],
+    ['Submissions', 'Can visitors update an existing record?', 'No. Public forms only create records. A submission that includes a record Id is rejected, so nobody can overwrite your data through a form link.'],
     ['Submissions', 'Where do I find the record a submission created?', 'Select the submission. **Related records** lists the object, the record Id (click it to open) and whether it was created or updated.']
 ];
 
