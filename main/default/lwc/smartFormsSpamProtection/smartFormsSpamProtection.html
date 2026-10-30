@@ -1,0 +1,116 @@
+<template>
+    <section class="view" aria-labelledby="sp-title">
+        <div class="view-head">
+            <div>
+                <span class="eyebrow eyebrow--accent">Protect your forms</span>
+                <h1 id="sp-title">Spam protection</h1>
+                <p class="muted">
+                    Keep bots out of your public forms. Visitors see a short Cloudflare Turnstile check, which is free and usually needs no clicking.
+                </p>
+            </div>
+            <span class={statusClass} data-id="status">{statusText}</span>
+        </div>
+
+        <template lwc:if={readOnly}>
+            <template lwc:if={loaded}>
+                <div class="note note--warn">
+                    <c-smart-forms-icon name="lock"></c-smart-forms-icon>
+                    <p>You can see the status, but only administrators with the Form Builder Admin permission set can change these keys.</p>
+                </div>
+            </template>
+        </template>
+
+        <div class="panel">
+            <div class="panel__body sp">
+                <h2>Connect Cloudflare Turnstile</h2>
+                <p class="muted small">
+                    You use your own free Cloudflare account, so the keys stay yours. It takes about five minutes.
+                </p>
+                <ol class="sp__steps">
+                    <li>Sign in or create a free account at <a href="https://dash.cloudflare.com/sign-up" target="_blank" rel="noopener noreferrer">dash.cloudflare.com</a>.</li>
+                    <li>Open <strong>Turnstile</strong> in the left menu and choose <strong>Add widget</strong>.</li>
+                    <li>Under <strong>Hostnames</strong>, add the domain your forms are published on. <span class="muted">{hostHint}</span></li>
+                    <li>Choose the <strong>Managed</strong> widget mode and create the widget.</li>
+                    <li>Copy the <strong>Site Key</strong> and the <strong>Secret Key</strong> into the boxes below.</li>
+                </ol>
+
+                <div class="sp__keys">
+                    <div class="field">
+                        <label for="sp-site">Site key</label>
+                        <input
+                            id="sp-site"
+                            class="input"
+                            data-id="siteKey"
+                            type="text"
+                            maxlength="100"
+                            autocomplete="off"
+                            spellcheck="false"
+                            disabled={readOnly}
+                            value={siteKey}
+                            oninput={handleSiteKey} />
+                        <span class="hint">Public. It is shown in your published form.</span>
+                    </div>
+                    <div class="field">
+                        <label for="sp-secret">Secret key</label>
+                        <input
+                            id="sp-secret"
+                            class="input"
+                            data-id="secretKey"
+                            type="password"
+                            maxlength="100"
+                            autocomplete="new-password"
+                            spellcheck="false"
+                            disabled={readOnly}
+                            placeholder={secretPlaceholder}
+                            value={secretKey}
+                            oninput={handleSecretKey} />
+                        <span class="hint">Private. Once saved it is never shown again.</span>
+                    </div>
+                </div>
+
+                <div class="row sp__actions">
+                    <button class="btn btn--primary" type="button" data-id="save" disabled={saveDisabled} onclick={handleSave}>{saveLabel}</button>
+                    <button class="btn" type="button" data-id="test" disabled={testDisabled} onclick={handleTest}>{testLabel}</button>
+                    <template lwc:if={hasKeys}>
+                        <button class="btn btn--ghost" type="button" data-id="remove" disabled={clearDisabled} onclick={handleAskClear}>Remove keys</button>
+                    </template>
+                </div>
+
+                <template lwc:if={confirmingClear}>
+                    <div class="note note--warn" role="alertdialog" aria-label="Remove keys">
+                        <c-smart-forms-icon name="warn"></c-smart-forms-icon>
+                        <div>
+                            <p>Remove the saved keys? Forms can no longer use the spam check.</p>
+                            <template lwc:if={hasFormsUsing}>
+                                <p data-id="forms-using"><strong>{formsUsingText}</strong></p>
+                            </template>
+                            <div class="row">
+                                <button class="btn btn--sm" type="button" data-id="confirm-remove" disabled={clearDisabled} onclick={handleClear}>Yes, remove keys</button>
+                                <button class="btn btn--ghost btn--sm" type="button" data-id="cancel-remove" onclick={handleCancelClear}>Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div role="status" aria-live="polite">
+                    <template lwc:if={hasMessage}>
+                        <div class={messageClass} data-id="message"><p>{message}</p></div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel__body sp">
+                <h2>Always on, no setup</h2>
+                <ul class="sp__list">
+                    <li>Each form accepts a limited number of submissions per minute, so a flood cannot swamp it.</li>
+                    <li>A hidden trap field catches simple bots. Submissions that fill it in are dropped without being stored.</li>
+                </ul>
+                <p class="muted small">
+                    After connecting, open a form in the Form Builder and switch on <strong>Spam check</strong>. Save the form again to publish the change.
+                </p>
+            </div>
+        </div>
+    </section>
+</template>

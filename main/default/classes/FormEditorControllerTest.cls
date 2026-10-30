@@ -177,6 +177,24 @@ private class FormEditorControllerTest {
             System.assertEquals(true, data.containsKey('version'));
             System.assertEquals(true, data.containsKey('objectApiName'));
             System.assertEquals(true, data.containsKey('fieldConfig'));
+            System.assertEquals(true, data.containsKey('captchaEnabled'));
+            System.assertEquals(false, data.get('captchaEnabled'));
+        }
+    }
+
+    @IsTest
+    static void readCaptchaFlagIsFalseWhenTheUserCannotReadTheField() {
+        // This test user holds explicit field permissions that predate Captcha_Enabled__c, like a
+        // customer permission set created before the upgrade: forms must still open normally.
+        Form__c f = makeForm('Protected Form');
+        f.Captcha_Enabled__c = true;
+        insert f;
+
+        System.runAs(getRunAsUser()) {
+            Boolean canRead = Schema.SObjectType.Form__c.fields.Captcha_Enabled__c.isAccessible();
+            System.assertEquals(canRead, FormEditorController.readCaptchaFlag(f.Id), 'No access must read as "off", never throw');
+            System.assertEquals(false, FormEditorController.readCaptchaFlag(null));
+            System.assertNotEquals(null, FormEditorController.getFormData(f.Id));
         }
     }
 

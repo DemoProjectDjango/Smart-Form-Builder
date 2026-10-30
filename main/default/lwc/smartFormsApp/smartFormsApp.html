@@ -30,9 +30,11 @@
                     <c-smart-forms-builder
                         request={builderRequest}
                         base-url={baseUrl}
+                        captcha-connected={captchaConnected}
                         onnotify={handleNotify}
                         onsaved={handleSaved}
-                        ongostart={handleGoStart}>
+                        ongostart={handleGoStart}
+                        ongoprotection={handleGoProtection}>
                     </c-smart-forms-builder>
                 </div>
 
@@ -48,6 +50,10 @@
 
                 <template lwc:if={isSubmissions}>
                     <c-smart-forms-submissions onnotify={handleNotify}></c-smart-forms-submissions>
+                </template>
+
+                <template lwc:if={isProtection}>
+                    <c-smart-forms-spam-protection base-url={baseUrl} onnotify={handleNotify} onprotectionchange={handleProtectionChange}></c-smart-forms-spam-protection>
                 </template>
 
                 <template lwc:if={isHelp}>

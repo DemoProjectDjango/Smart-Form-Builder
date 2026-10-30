@@ -19,4 +19,6 @@ public class FormTemplateRequest {
     @AuraEnabled public String fieldConfigJson;
     /** @description Id of an existing Form__c record to update, or null for create. */
     @AuraEnabled public Id formId;
+    /** @description Whether the published form must carry a verified captcha token; null leaves it unchanged. */
+    @AuraEnabled public Boolean captchaEnabled;
 }

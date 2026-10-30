@@ -46,6 +46,15 @@
 
     <div id="sf-form-root"></div>
 
+    <!--
+        Cloudflare Turnstile widget script. Rendered only for forms that require a captcha and only
+        when spam protection is connected. The URL is a fixed literal (no VF expression); the token the
+        widget produces is verified server-side in FormController.saveSubmission before anything is stored.
+    -->
+    <apex:outputPanel rendered="{!showCaptcha}" layout="none">
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async="async" defer="defer"></script>
+    </apex:outputPanel>
+
     <script>
         var SAVE_SUBMISSION_ACTION = '{!$RemoteAction.FormController.saveSubmission}';
 

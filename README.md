@@ -1,10 +1,11 @@
 # Smart Forms & Surveys (native)
 
-A 100% native Salesforce form builder. Admins build forms on top of any Salesforce object, publish them on a public Salesforce Site, and every visitor submission creates (or updates) a real Salesforce record. No external services, no callouts.
+A native Salesforce form builder. Admins build forms on top of any Salesforce object, publish them on a public Salesforce Site, and every visitor submission creates a real Salesforce record. Everything runs inside your org. The only optional external service is the Cloudflare Turnstile spam check, which you switch on yourself with your own free Cloudflare account.
 
 - **Build** a form by picking an object and its fields, ordering them, adding labels, placeholders, required flags and "show only for certain answers" rules.
 - **Publish** it as a public link (Salesforce Site + Visualforce page), no visitor login needed.
-- **Track** every submission, the record it created or updated, or the error that stopped it.
+- **Protect** it from bots with a built-in rate limit and trap field, and an optional Cloudflare Turnstile spam check.
+- **Track** every submission, the record it created, or the error that stopped it.
 
 ## Contents
 
@@ -23,7 +24,7 @@ A 100% native Salesforce form builder. Admins build forms on top of any Salesfor
 
 ## Features
 
-The **Smart Forms & Surveys (native)** app has one tab with a left sidebar and six views:
+The **Smart Forms & Surveys (native)** app has one tab with a left sidebar and seven views:
 
 | View | What it does |
 | --- | --- |
@@ -31,6 +32,7 @@ The **Smart Forms & Surveys (native)** app has one tab with a left sidebar and s
 | **Form Builder** | Merged workspace: field picker, canvas with reordering, side drawer to edit a field (label, placeholder, required, conditional visibility with a live "Try it"), and a Visitor view preview. **Save & generate form** publishes it and bumps the version. |
 | **Forms** | Every saved form with its object, version and public link, copy / open actions, a visitor preview (including the "Form Not Found" page) and *Edit in Form Builder*. |
 | **Submissions** | Everything visitors sent: readable or raw JSON payload, the record each submission created or updated (click to open) and the error message for failures. Filter by All / Record saved / Has error. |
+| **Spam protection** | Guided setup for Cloudflare Turnstile: paste your own site key and secret key, run the connection test, and forms can then require a spam check. The secret key is write-only and is never shown again. |
 | **Help & FAQ** | Searchable step-by-step guides and FAQ. |
 | **Contact** | Support and inquiry channels with copy and open actions. |
 
@@ -46,6 +48,16 @@ Supported field types: text, email, phone, URL, number, currency, percent, pickl
 
 Lookups that Salesforce requires to create the record must be configured before the form can be saved.
 
+**Spam protection**
+
+| Layer | Setup | What it does |
+| --- | --- | --- |
+| **Rate limit** | None, always on | Each form accepts at most 60 submissions per minute. Beyond that visitors see a "try again in a minute" message instead of the form filling up with junk. |
+| **Trap field** | None, always on | An invisible field simple bots fill in. Submissions that fill it are dropped silently and never stored. |
+| **Cloudflare Turnstile spam check** | Your free Cloudflare account, about 5 minutes | Visitors complete a short check (usually no clicking). The server verifies the token with Cloudflare before anything is stored, binds it to the form it was issued for, and rejects the submission on any failure. |
+
+To use the Turnstile check: open **Spam protection**, follow the five steps (create a Turnstile widget, allow your form's hostname, copy the keys), then **Save and test**. Once connected, new forms have **Spam check** switched on by default; switch it on for existing forms and save them again, because saving is what publishes the change. Forms created before this feature stay unprotected until you do. If the keys are removed, forms that require the check stop accepting submissions until new keys are tested or the check is switched off.
+
 ## Package information
 
 | | |
@@ -54,26 +66,26 @@ Lookups that Salesforce requires to create the record must be configured before 
 | Package type | Managed 2GP (second-generation) |
 | Namespace | `twinforce` |
 | Package Id | `0HoOW00000000Uf0AI` |
-| Latest version | **0.6.0.1** (Released) |
-| Subscriber package version Id | `04tOW00000Le0ZuYAJ` |
-| Ancestor of 0.5.0.1 / 0.6.0.1 | 0.4.0.2 / 0.5.0.1 |
-| Apex code coverage | 87% |
+| Latest version | **0.7.0.2** (Released) |
+| Subscriber package version Id | `04tOW00000LhRwwYAF` |
+| Ancestor of 0.6.0.1 / 0.7.0.2 | 0.5.0.1 / 0.6.0.1 |
+| Apex code coverage | 92% |
 | Source API version | 65.0 |
 | Dev Hub | `reviewdemo` |
 
-Install links for 0.6.0.1:
+Install links for 0.7.0.2:
 
-- Production / Developer Edition (also the link for new installs anywhere): `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000Le0ZuYAJ`
-- Sandbox / scratch org: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000Le0ZuYAJ`
+- Production / Developer Edition (also the link for new installs anywhere): `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000LhRwwYAF`
+- Sandbox / scratch org: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tOW00000LhRwwYAF`
 
-> 0.6.0.1 is a **released** version, so it can be installed in production as well as in sandboxes, scratch orgs and Developer Edition orgs. A released version is immutable; ship fixes as a new version.
+> 0.7.0.2 is a **released** version, so it can be installed in production as well as in sandboxes, scratch orgs and Developer Edition orgs. A released version is immutable; ship fixes as a new version.
 
 ## Installation
 
 Using the Salesforce CLI:
 
 ```sh
-sf package install --package 04tOW00000Le0ZuYAJ --target-org <your-org> --security-type AdminsOnly --wait 20
+sf package install --package 04tOW00000LhRwwYAF --target-org <your-org> --security-type AdminsOnly --wait 20
 ```
 
 Or open one of the install links above. After installation:
@@ -113,9 +125,13 @@ main/default
 ├── applications/      Smart Forms & Surveys (native) app (API name VFFormBuilder)
 ├── classes/           Apex controllers, services and tests
 ├── lwc/               Lightning Web Components (see below)
-├── objects/           Form__c, Form_Submission__c, Form_Submission_Record__c, Form_Builder_Settings__c
+├── cspTrustedSites/   Cloudflare_Turnstile (lets the public page load the widget)
+├── customPermissions/ Manage_Spam_Protection
+├── objects/           Form__c, Form_Submission__c, Form_Submission_Record__c, Form_Builder_Settings__c,
+│                      Captcha_Settings__c (protected: Turnstile keys)
 ├── pages/             PublicForm.page (public form renderer)
 ├── permissionsets/    FormBuilder_Admin, FormBuilder_Guest
+├── remoteSiteSettings/ Cloudflare_Turnstile (token verification callout)
 ├── staticresources/   DOMPurify (HTML sanitizer for the public page)
 ├── tabs/              Smart_Forms tab
 └── triggers/          FormSubmissionTrigger
@@ -126,7 +142,7 @@ main/default
 | Component | Role |
 | --- | --- |
 | `smartFormsApp` | App shell: left sidebar navigation and routing between views (tab entry point). |
-| `smartFormsStart` / `smartFormsBuilder` / `smartFormsForms` / `smartFormsSubmissions` / `smartFormsHelp` / `smartFormsContact` | The six views. |
+| `smartFormsStart` / `smartFormsBuilder` / `smartFormsForms` / `smartFormsSubmissions` / `smartFormsSpamProtection` / `smartFormsHelp` / `smartFormsContact` | The seven views. |
 | `smartFormsVisitor` | Interactive preview of the public form (rendered natively, no `innerHTML`). |
 | `smartFormsModel` | Pure logic: field and dependency rules, safe text helpers, and the generators for the public form's HTML, CSS and JS. |
 | `smartFormsLookupConfig` | Lookup field settings in the field drawer: fixed record or selected choices, with record search. |
@@ -143,7 +159,9 @@ The original `formConfigurator`, `formEditor`, `formPreviewer`, `publicFormConfi
 | `FormAuraController`, `FormEditorController`, `FormEditorMetadataService` | Save forms, load templates, object and field describe (including the objects a lookup points to). |
 | `FormFieldConfig` / `FormConfigValidator` | Parse the saved field configuration (the server-side allow-list) and validate lookup settings before a form is saved. |
 | `LookupRecordSearchController` | Admin-only record search for the lookup settings (`with sharing`, user mode, search text bound as a variable). |
-| `FormController` | Public page controller and the visitor submission endpoint. |
+| `FormController` | Public page controller and the visitor submission endpoint (rate limit, trap field and captcha check run here before anything is stored). |
+| `TurnstileVerifier` | Verifies Cloudflare Turnstile tokens (the only class that calls Cloudflare). Fails closed on every error. |
+| `CaptchaSettingsController` | Admin-only backend for the Spam protection view: save, test and remove the keys in the protected `Captcha_Settings__c` setting. Every write needs the `Manage_Spam_Protection` custom permission. |
 | `FormSubmissionHandler` / `FormSubmissionProcessor` / `FormSubmissionTrigger` | Turn a submission into Salesforce records and record the result. |
 | `SiteNameCheckController`, `FormBuilderSettingsService` | Site readiness checks and the public link setting. |
 
@@ -158,7 +176,11 @@ The original `formConfigurator`, `formEditor`, `formPreviewer`, `publicFormConfi
 - **Create only:** public submissions can only create records. A request that carries a record Id is rejected and recorded as an error, so a form link can never overwrite existing data.
 - **Lookups never take visitor Ids:** a lookup is written only from the admin's fixed record or selected choices, mapped from opaque keys on the server. The target record's object is checked against the lookup's allowed objects.
 - **Failures are recorded, not thrown:** a record that Salesforce rejects is stored as the submission's error (visible in Submissions) instead of failing the trigger. Visitors see a generic message, never Salesforce internals.
-- **Honeypot:** published forms include an invisible field that simple bots fill in; such submissions are dropped.
+- **Honeypot:** published forms include an invisible field that simple bots fill in; such submissions are dropped, on the page and again on the server.
+- **Rate limit:** each form accepts at most 60 submissions per minute. The count is read in system mode in a private `without sharing` class because the guest user cannot see other visitors' submissions; it returns only a yes or no.
+- **Captcha, verified on the server:** a form that requires the spam check is only saved after `TurnstileVerifier` confirms the token with Cloudflare, the token was issued for that same form, and the answer came with HTTP 200. Missing token, replayed token, wrong form, timeout, unreadable answer and "not connected" all reject the submission. The token and trap field are stripped before the payload is stored.
+- **Turnstile keys:** the site key is public. The secret key lives in the protected `Captcha_Settings__c` custom setting (readable only by this package's Apex), is write-only in the UI, is never logged and is never sent to a browser. Whether a form needs a captcha is decided by the server, never by the visitor.
+- **External script:** forms that require the spam check load Cloudflare's `api.js` from `challenges.cloudflare.com`. Cloudflare requires this script to be loaded from their domain, so it cannot be a static resource. It loads only on pages of forms that require the check.
 - Picklist answers must be one of the values saved with the form.
 - Never grant the guest user other Form Builder classes or `FormBuilder_Admin`.
 
@@ -184,7 +206,7 @@ sf org open --target-org sfb-scratch
 
 In the scratch org, open the **Smart Forms & Surveys (native)** app. The *Get started* tab shows "Setup required" until a Site named `PublicForm` exists; follow the setup guide.
 
-`sfdx-project.json` holds the package definition (`Smart Forms & Surveys`, namespace `twinforce`, version `0.6.0.NEXT`, ancestor `HIGHEST`). `.forceignore` excludes tests, `jsconfig.json`, and the Site-bound sharing rule from deploys and packaging.
+`sfdx-project.json` holds the package definition (`Smart Forms & Surveys`, namespace `twinforce`, version `0.7.0.NEXT`, ancestor `HIGHEST`). `.forceignore` excludes tests, `jsconfig.json`, and the Site-bound sharing rule from deploys and packaging.
 
 ## Testing and quality gates
 
@@ -200,7 +222,7 @@ sf code-analyzer run --workspace main --target main/default/classes --target mai
   --rule-selector Recommended --rule-selector Security --rule-selector AppExchange
 ```
 
-Current status (0.6.0.1): 102 Jest tests pass; 101 Apex tests pass with 90% package coverage; Code Analyzer reports 0 security findings (`sfge`, `retire-js` and all high-severity rules). The remaining informational findings are `slds/no-hardcoded-values-slds2` style hints from the custom design and three code-complexity notes in older classes.
+Current status (0.7.0 in development): 138 Jest tests pass; 136 Apex tests pass with 94% coverage in the scratch org; Code Analyzer reports 0 `sfge` and 0 `retire-js` findings. One high-severity item remains by design: PMD `LoadJavaScriptHtmlScript` on `PublicForm.page`, for Cloudflare's widget script, which Cloudflare requires to be loaded from their domain (see Security). The rest are `slds/no-hardcoded-values-slds2` style hints from the custom design and code-complexity notes in older classes. The two intentional system-mode reads in `FormController` (captcha flag and rate-limit count) carry inline `code-analyzer-suppress` comments with the justification next to them.
 
 ## Creating a package version
 
@@ -220,6 +242,15 @@ sf package version promote --package <04t-id> --target-dev-hub reviewdemo
 Update `versionNumber` in `sfdx-project.json` (for example `0.7.0.NEXT`) before creating a new minor or major version. `ancestorVersion: HIGHEST` links each version to the highest released one so subscribers can upgrade.
 
 ## Release notes
+
+### 0.7.0.2 (released, branch `feat/captcha`)
+
+- **New Spam protection tab:** guided setup for Cloudflare Turnstile with your own free Cloudflare account. Paste the site key and secret key, **Save and test**, and forms can require a spam check. Forms show a short check above the Submit button and the server verifies it with Cloudflare before anything is stored.
+- **New Spam check switch in the Form Builder.** On by default for new forms once protection is connected. Existing forms stay unprotected until you switch the check on and save them again.
+- **Always on, no setup:** each form accepts at most 60 submissions per minute, and the trap field is now also checked on the server.
+- New components: `Captcha_Settings__c` (protected), `Form__c.Captcha_Enabled__c`, the `Manage_Spam_Protection` custom permission (in `FormBuilder_Admin`), a Remote Site Setting and a CSP Trusted Site for `https://challenges.cloudflare.com`.
+- The package now makes one optional outbound call (token verification to Cloudflare), only for forms that require the check.
+- The public page loads Cloudflare's widget script from `challenges.cloudflare.com` for those forms (Cloudflare requires this).
 
 ### 0.6.0.1 (released, branch `feat/lookup`)
 

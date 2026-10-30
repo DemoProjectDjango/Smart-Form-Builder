@@ -57,12 +57,28 @@ export default class SmartFormsBuilder extends LightningElement {
     isSaving = false;
     hasRequest = false;
 
+    captchaEnabled = false;
+
     selectedApi = null;
     draft = null;
     tryValue = '';
     _focusDrawer = false;
     _returnFocusApi = null;
     _request = null;
+    _captchaConnected = false;
+    _captchaTouched = false;
+
+    /** Whether spam protection (Cloudflare Turnstile keys) is connected; a form can only require the check when it is. */
+    @api
+    get captchaConnected() {
+        return this._captchaConnected;
+    }
+    set captchaConnected(value) {
+        const connected = !!value;
+        // A brand new form starts protected as soon as protection is available, unless the admin chose otherwise.
+        if (connected && !this._captchaConnected && !this.formId && !this._captchaTouched) this.captchaEnabled = true;
+        this._captchaConnected = connected;
+    }
 
     /** { name, objectApiName, objectLabel, formId, token } handed over from "Get started". */
     @api
@@ -91,6 +107,8 @@ export default class SmartFormsBuilder extends LightningElement {
         this.dirty = false;
         this.view = 'edit';
         this.isLoading = true;
+        this._captchaTouched = false;
+        this.captchaEnabled = !req.formId && this._captchaConnected;
         const requestToken = req.token;
         try {
             if (req.formId) {
@@ -98,6 +116,7 @@ export default class SmartFormsBuilder extends LightningElement {
                 if (this._request.token !== requestToken) return;
                 if (data) {
                     this.version = data.version;
+                    this.captchaEnabled = !!data.captchaEnabled;
                     this.fields = parseFieldConfig(data.fieldConfig);
                     this.objectApiName = data.objectApiName || this.objectApiName;
                 }
@@ -168,6 +187,26 @@ export default class SmartFormsBuilder extends LightningElement {
 
     get saveDisabled() {
         return this.isSaving || this.isLoading;
+    }
+
+    /** Off and unavailable until protection is connected; a form that already has it can always be switched off. */
+    get captchaToggleDisabled() {
+        return !this._captchaConnected && !this.captchaEnabled;
+    }
+
+    get showSetupLink() {
+        return !this._captchaConnected;
+    }
+
+    get captchaHint() {
+        if (this._captchaConnected) {
+            return this.captchaEnabled
+                ? 'Visitors complete a short check before they can submit. Save the form to publish the change.'
+                : 'Switch on to add a short check before visitors can submit.';
+        }
+        return this.captchaEnabled
+            ? 'Spam protection is no longer connected. Switch this off, or reconnect it, before saving.'
+            : 'Connect Cloudflare Turnstile first, then you can require a spam check on this form.';
     }
 
     get visitorUrl() {
@@ -489,6 +528,16 @@ export default class SmartFormsBuilder extends LightningElement {
         this.notify('Changes applied to the form');
     }
 
+    handleCaptcha(event) {
+        this.captchaEnabled = event.target.checked;
+        this._captchaTouched = true;
+        this.dirty = true;
+    }
+
+    handleGoProtection() {
+        this.dispatchEvent(new CustomEvent('goprotection'));
+    }
+
     async handleSave() {
         const name = (this.name || '').trim();
         if (!name) {
@@ -514,17 +563,23 @@ export default class SmartFormsBuilder extends LightningElement {
             this.notify('Add at least one field visitors can fill in. Lookup fields stay hidden until you configure them.', 'error');
             return;
         }
+        if (this.captchaEnabled && !this._captchaConnected) {
+            this.notify('Spam protection is not connected. Switch the spam check off, or reconnect it on the Spam protection tab.', 'error');
+            return;
+        }
         this.isSaving = true;
         try {
+            const options = { captcha: this.captchaEnabled };
             const payload = {
                 name,
                 objectApiName: this.objectApiName,
                 formId: this.formId || null,
-                html: buildFormHtml(name, this.fields),
+                html: buildFormHtml(name, this.fields, options),
                 css: buildFormCss(),
-                js: buildFormJs(this.fields),
+                js: buildFormJs(this.fields, options),
                 fieldDependenciesJson: buildDependencyJson(this.fields),
-                fieldConfigJson: buildFieldConfigJson(this.fields)
+                fieldConfigJson: buildFieldConfigJson(this.fields),
+                captchaEnabled: this.captchaEnabled
             };
             const savedId = await saveFormTemplate({ reqJson: JSON.stringify(payload) });
             if (savedId) {

@@ -1,0 +1,64 @@
+@import 'c/smartFormsShared';
+
+.eyebrow--accent {
+    color: var(--accent);
+}
+
+.view-head {
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.chip--ok {
+    background: var(--ok-soft);
+    color: var(--ok);
+}
+
+.sp {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sp h2 {
+    margin: 0;
+}
+
+.sp__steps {
+    margin: 0;
+    padding-left: 22px;
+    list-style: decimal outside;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sp__keys {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.sp__actions {
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.sp__list {
+    margin: 0;
+    padding-left: 20px;
+    list-style: disc outside;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.note p {
+    margin: 0 0 6px;
+}
+
+@media (max-width: 720px) {
+    .sp__keys {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
