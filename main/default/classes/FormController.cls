@@ -15,7 +15,29 @@ public with sharing class FormController {
     @TestVisible
     private static final Integer MAX_PAYLOAD_LEN = 131070; // Form_Submission__c.Payload_JSON__c length
 
+    @TestVisible
+    private static Integer maxSubmissionsPerMinute = 60; // per form; generous so a busy form never trips it
+    private static final String CAPTCHA_KEY = '_captcha';
+    private static final String HONEYPOT_KEY = 'hp_website';
+    private static final String SAVED = 'Success! Submission saved.';
+    private static final String FAILED = 'We could not save your submission. Please try again later.';
+
     public Form__c formRec { get; private set; }
+
+    /**
+     * @description Public Turnstile site key for this form, or '' when the form does not use a
+     *              captcha or spam protection is not connected. Drives loading of the widget script.
+     */
+    public String captchaSiteKey {
+        get {
+            return formRec != null && formRec.Captcha_Enabled__c == true ? TurnstileVerifier.connectedSiteKey() : '';
+        }
+    }
+
+    /** @description True when the Turnstile widget script must be loaded on the page. */
+    public Boolean showCaptcha {
+        get { return String.isNotBlank(captchaSiteKey); }
+    }
 
     public String sanitizedHTML {
         get { return formRec != null ? sanitizeHtml(formRec.HTML_Template__c) : ''; }
@@ -34,7 +56,8 @@ public with sharing class FormController {
                 'id'   => String.valueOf(formRec.Id),
                 'html' => sanitizeHtml(formRec.HTML_Template__c),
                 'css'  => sanitizeCss(formRec.CSS_Template__c),
-                'js'   => sanitizeJs(formRec.JS_Template__c)
+                'js'   => sanitizeJs(formRec.JS_Template__c),
+                'captchaSiteKey' => captchaSiteKey
             };
             return JSON.serialize(payload).replace('</', '<\\/');
         }
@@ -63,6 +86,11 @@ public with sharing class FormController {
      * @description Saves a public form submission via Visualforce @RemoteAction.
      *              Field list is fixed in code (Payload_JSON__c + Form__c lookup only);
      *              payload length is capped to the field size; the Id is type-checked.
+     *
+     *              Before anything is written: a per-form rate cap applies to every form, a filled
+     *              honeypot is dropped silently, and forms that require a captcha must carry a
+     *              Turnstile token that Cloudflare confirms (fail closed on any error). The token and
+     *              honeypot keys are removed so they are never stored with the submission.
      */
     @RemoteAction
     @SuppressWarnings('PMD.ApexCRUDViolation')
@@ -72,16 +100,59 @@ public with sharing class FormController {
         if (formId.getSobjectType() != Form__c.SObjectType) { return 'Invalid form ID'; }
         if (payloadJson.length() > MAX_PAYLOAD_LEN) { return 'Submission too large'; }
         try {
+            GuestFormService guest = new GuestFormService();
+            if (guest.isBusy(formId, maxSubmissionsPerMinute)) {
+                return 'This form is receiving a lot of submissions right now. Please try again in a minute.';
+            }
+            ScreenedPayload screened = screenPayload(payloadJson, formId, guest.captchaRequired(formId));
+            if (screened.reply != null) { return screened.reply; }
             Form_Submission__c submission = new Form_Submission__c(
-                Payload_JSON__c = payloadJson,
+                Payload_JSON__c = screened.payload,
                 Form__c         = formId
             );
             new GuestSubmissionWriter().insertSubmission(submission);
-            return 'Success! Submission saved.';
+            return SAVED;
         } catch (Exception e) {
             // Details stay server-side; visitors never see Salesforce internals.
-            return 'We could not save your submission. Please try again later.';
+            return FAILED;
         }
+    }
+
+    /**
+     * @description Outcome of the spam screening: either a reply to return to the visitor right away
+     *              (reply != null) or the payload to store.
+     */
+    private class ScreenedPayload {
+        String reply;
+        String payload;
+    }
+
+    private static ScreenedPayload screenPayload(String payloadJson, Id formId, Boolean captchaRequired) {
+        ScreenedPayload screened = new ScreenedPayload();
+        screened.payload = payloadJson;
+        if (!captchaRequired && !payloadJson.contains('"' + CAPTCHA_KEY + '"') && !payloadJson.contains('"' + HONEYPOT_KEY + '"')) {
+            return screened;
+        }
+        Map<String, Object> fields = (Map<String, Object>) JSON.deserializeUntyped(payloadJson);
+        if (fields == null) {
+            screened.reply = FAILED;
+            return screened;
+        }
+        Object trap = fields.remove(HONEYPOT_KEY);
+        Object token = fields.remove(CAPTCHA_KEY);
+        if (trap != null && String.isNotBlank(String.valueOf(trap))) {
+            screened.reply = SAVED; // looks like success to the bot; nothing is stored
+            return screened;
+        }
+        if (captchaRequired && !TurnstileVerifier.verify(token == null ? null : String.valueOf(token), formId).success) {
+            screened.reply = 'The spam check failed. Please reload the page and try again.';
+            return screened;
+        }
+        screened.payload = JSON.serialize(fields);
+        if (screened.payload.length() > MAX_PAYLOAD_LEN) {
+            screened.reply = 'Submission too large';
+        }
+        return screened;
     }
 
     // ── Guest elevated-access service ────────────────────────────────────────
@@ -108,13 +179,48 @@ public with sharing class FormController {
                 SELECT HTML_Template__c,
                        CSS_Template__c,
                        JS_Template__c,
-                       Field_Dependencies__c
+                       Field_Dependencies__c,
+                       Captcha_Enabled__c
                 FROM Form__c
                 WHERE Id = :formId
                 WITH SYSTEM_MODE
                 LIMIT 1
             ];
             return forms.isEmpty() ? null : forms[0];
+        }
+
+        /**
+         * WHY SYSTEM_MODE: the guest user has no FLS on the packaged Form__c fields, and whether a
+         * form demands a captcha must be decided by the server, never by the visitor. Reads one
+         * checkbox for one type-checked Id.
+         */
+        Boolean captchaRequired(Id formId) {
+            // code-analyzer-suppress sfge.ApexFlsViolation, sfge.DatabaseOperationsMustUseWithSharing
+            List<Form__c> forms = [
+                SELECT Captcha_Enabled__c
+                FROM Form__c
+                WHERE Id = :formId
+                WITH SYSTEM_MODE
+                LIMIT 1
+            ];
+            return !forms.isEmpty() && forms[0].Captcha_Enabled__c == true;
+        }
+
+        /**
+         * WHY SYSTEM_MODE: the guest user cannot see other visitors' submissions, but the rate cap
+         * must count all of them. Returns only a yes/no answer, never record data.
+         */
+        Boolean isBusy(Id formId, Integer maxPerMinute) {
+            Datetime since = Datetime.now().addSeconds(-60);
+            // code-analyzer-suppress sfge.ApexFlsViolation, sfge.DatabaseOperationsMustUseWithSharing
+            Integer recent = [
+                SELECT COUNT()
+                FROM Form_Submission__c
+                WHERE Form__c = :formId AND CreatedDate >= :since
+                WITH SYSTEM_MODE
+                LIMIT 1000
+            ];
+            return recent >= maxPerMinute;
         }
 
     }

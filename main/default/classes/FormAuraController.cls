@@ -13,6 +13,10 @@ public with sharing class FormAuraController {
             ensureUpdatePermissions();
             Form__c form = loadFormForUpdate(req.formId);
             applyFormFields(form, req);
+            // Only touched when it changes, so users without access to the field can still save forms.
+            if (req.captchaEnabled != null && req.captchaEnabled != FormEditorController.readCaptchaFlag(req.formId)) {
+                form.Captcha_Enabled__c = req.captchaEnabled;
+            }
             bumpVersion(form);
             try {
                 update as user form;
@@ -24,6 +28,9 @@ public with sharing class FormAuraController {
 
         ensureCreatePermissions();
         Form__c newForm = buildNewForm(req);
+        if (req.captchaEnabled == true) {
+            newForm.Captcha_Enabled__c = true;
+        }
         newForm.Version__c = calculateNextVersionForNewForm(req.name);
         try {
             insert as user newForm;
@@ -56,11 +63,21 @@ public with sharing class FormAuraController {
         if (req == null) { throw new AuraHandledException('Request payload is missing.'); }
         if (String.isBlank(req.name)) { throw new AuraHandledException('Form name is required.'); }
         String configError = FormConfigValidator.validate(req.fieldConfigJson);
+        if (configError == null) {
+            configError = captchaError(req);
+        }
         if (configError != null) {
             AuraHandledException ex = new AuraHandledException(configError);
             ex.setMessage(configError);
             throw ex;
         }
+    }
+
+    private static String captchaError(FormTemplateRequest req) {
+        if (req.captchaEnabled == true && !TurnstileVerifier.isConnected()) {
+            return 'Connect spam protection on the Spam protection tab before requiring a captcha on a form.';
+        }
+        return null;
     }
 
     private static void ensureUpdatePermissions() {

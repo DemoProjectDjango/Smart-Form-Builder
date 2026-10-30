@@ -10,7 +10,9 @@ import fetchFieldsForObject from '@salesforce/apex/FormEditorController.fetchFie
 import getFormData from '@salesforce/apex/FormEditorController.getFormData';
 import getForms from '@salesforce/apex/SmartFormsDataController.getForms';
 import getFormDetail from '@salesforce/apex/SmartFormsDataController.getFormDetail';
+import getCaptchaStatus from '@salesforce/apex/CaptchaSettingsController.getStatus';
 
+jest.mock('@salesforce/apex/CaptchaSettingsController.getStatus', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SmartFormsDataController.getPublicFormBaseUrl', () => {
     const { createApexTestWireAdapter: adapter } = require('@salesforce/sfdx-lwc-jest');
     return { default: adapter(jest.fn()) };
@@ -52,6 +54,7 @@ describe('c-smart-forms-app', () => {
         getForms.mockResolvedValue([]);
         getFormDetail.mockResolvedValue(null);
         getFormData.mockResolvedValue(null);
+        getCaptchaStatus.mockResolvedValue({ connected: false, canManage: true, secretSaved: false, siteKey: '', formsUsing: 0 });
     });
 
     afterEach(() => {
@@ -59,7 +62,7 @@ describe('c-smart-forms-app', () => {
         while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
     });
 
-    it('renders the brand bar, five tabs and the error badge', async () => {
+    it('renders the brand bar, seven tabs and the error badge', async () => {
         const el = mount();
         await flush();
         expect(el.shadowRoot.querySelector('.appname').textContent).toBe('Smart Forms & Surveys (native)');
@@ -72,6 +75,7 @@ describe('c-smart-forms-app', () => {
             'builder',
             'forms',
             'submissions',
+            'protection',
             'help',
             'contact'
         ]);
@@ -136,6 +140,51 @@ describe('c-smart-forms-app', () => {
         await flush();
         expect(el.shadowRoot.querySelectorAll('.toast').length).toBe(1);
         expect(el.shadowRoot.querySelector('.toast--bad').textContent).toBe('Broke');
+    });
+
+    it('opens Spam protection and tells the builder when it becomes connected', async () => {
+        getCaptchaStatus.mockResolvedValue({ connected: false, canManage: true, secretSaved: false, siteKey: '', formsUsing: 0 });
+        const el = mount();
+        await flush();
+        const builder = el.shadowRoot.querySelector('c-smart-forms-builder');
+        expect(builder.captchaConnected).toBe(false);
+
+        tab(el, 'protection').click();
+        await flush();
+        expect(current(el)).toBe('protection');
+        const protection = el.shadowRoot.querySelector('c-smart-forms-spam-protection');
+        expect(protection).not.toBeNull();
+
+        protection.dispatchEvent(new CustomEvent('protectionchange', { detail: { connected: true } }));
+        await flush();
+        expect(builder.captchaConnected).toBe(true);
+
+        protection.dispatchEvent(new CustomEvent('protectionchange', { detail: { connected: false } }));
+        await flush();
+        expect(builder.captchaConnected).toBe(false);
+    });
+
+    it('knows at start-up that spam protection is already connected', async () => {
+        getCaptchaStatus.mockResolvedValue({ connected: true, canManage: false });
+        const el = mount();
+        await flush();
+        expect(el.shadowRoot.querySelector('c-smart-forms-builder').captchaConnected).toBe(true);
+    });
+
+    it('still starts when the spam protection status cannot be read', async () => {
+        getCaptchaStatus.mockRejectedValue(new Error('denied'));
+        const el = mount();
+        await flush();
+        expect(el.shadowRoot.querySelector('c-smart-forms-builder').captchaConnected).toBe(false);
+        expect(current(el)).toBe('start');
+    });
+
+    it('sends the builder\'s "set up spam protection" request to the Spam protection tab', async () => {
+        const el = mount();
+        await flush();
+        el.shadowRoot.querySelector('c-smart-forms-builder').dispatchEvent(new CustomEvent('goprotection'));
+        await flush();
+        expect(current(el)).toBe('protection');
     });
 
     it('navigates when Help asks it to', async () => {

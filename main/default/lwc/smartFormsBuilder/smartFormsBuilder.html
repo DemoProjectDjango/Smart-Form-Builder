@@ -33,6 +33,15 @@
             </div>
 
             <template lwc:if={isEditView}>
+                <div class="panel protect">
+                    <label class="switch">
+                        <input type="checkbox" data-id="captcha" checked={captchaEnabled} disabled={captchaToggleDisabled} onchange={handleCaptcha} />Spam check
+                    </label>
+                    <span class="small muted protect__hint" data-id="captcha-hint">{captchaHint}</span>
+                    <template lwc:if={showSetupLink}>
+                        <button class="btn btn--ghost btn--sm" type="button" data-id="setup-protection" onclick={handleGoProtection}>Set up spam protection</button>
+                    </template>
+                </div>
                 <div class="workspace">
                     <aside class="panel picker" aria-label="Fields">
                         <div class="panel__head">
@@ -154,7 +163,7 @@
                 <div>
                     <div class="note note--info visitor-note">
                         <c-smart-forms-icon name="info"></c-smart-forms-icon>
-                        <p>This is how visitors see the form. Try it: required fields are checked, and dependent fields appear when their controlling value is chosen.</p>
+                        <p>This is how visitors see the form. Try it: required fields are checked, and dependent fields appear when their controlling value is chosen.<template lwc:if={captchaEnabled}> The published form also shows a spam check above the Submit button.</template></p>
                     </div>
                     <c-smart-forms-visitor form-name={name} fields={fields} url={visitorUrl}></c-smart-forms-visitor>
                 </div>

@@ -1,6 +1,8 @@
 @IsTest
 private class FormControllerTest {
 
+    private static final String SITE_KEY = '1x00000000000000000000AA';
+
     private static Form__c createForm() {
         Form__c formRec = new Form__c(
             Name = 'Public Test Form',
@@ -153,6 +155,183 @@ private class FormControllerTest {
         String result = FormController.saveSubmission('', formRec.Id);
 
         System.assertEquals('Payload is missing', result);
+    }
+
+    // ── Spam protection ──────────────────────────────────────────────────────
+
+    private static void connectSpamProtection() {
+        insert new Captcha_Settings__c(
+            Site_Key__c = SITE_KEY,
+            Secret_Key__c = '1x0000000000000000000000000000000AA',
+            Connected__c = true
+        );
+    }
+
+    private static Form__c createProtectedForm() {
+        Form__c formRec = new Form__c(Name = 'Protected Form', Captcha_Enabled__c = true);
+        insert formRec;
+        return formRec;
+    }
+
+    private static List<Form_Submission__c> storedSubmissions(Id formId) {
+        return [SELECT Id, Payload_JSON__c FROM Form_Submission__c WHERE Form__c = :formId];
+    }
+
+    @IsTest
+    static void testFilledHoneypotIsDroppedWithoutSavingAnything() {
+        Form__c formRec = createForm();
+
+        String result = FormController.saveSubmission('{"FirstName":"Bot","hp_website":"http://spam.example"}', formRec.Id);
+
+        System.assertEquals('Success! Submission saved.', result, 'A bot must not learn that it was caught');
+        System.assertEquals(0, storedSubmissions(formRec.Id).size());
+    }
+
+    @IsTest
+    static void testHoneypotAndTokenKeysAreNeverStored() {
+        User guestLikeUser = buildGuestLikeUser();
+        Form__c formRec = createForm();
+
+        String result;
+        System.runAs(guestLikeUser) {
+            result = FormController.saveSubmission('{"FirstName":"Ann","hp_website":"","_captcha":"tok"}', formRec.Id);
+        }
+
+        System.assertEquals('Success! Submission saved.', result);
+        List<Form_Submission__c> rows = storedSubmissions(formRec.Id);
+        System.assertEquals(1, rows.size());
+        System.assertEquals('{"FirstName":"Ann"}', rows[0].Payload_JSON__c);
+    }
+
+    @IsTest
+    static void testRateCapStopsAFloodOnOneForm() {
+        User guestLikeUser = buildGuestLikeUser();
+        Form__c formRec = createForm();
+        Form__c otherForm = createForm();
+        FormController.maxSubmissionsPerMinute = 2;
+        insert new List<Form_Submission__c>{
+            new Form_Submission__c(Form__c = formRec.Id, Payload_JSON__c = '{"a":"1"}'),
+            new Form_Submission__c(Form__c = formRec.Id, Payload_JSON__c = '{"a":"2"}')
+        };
+
+        String blocked;
+        String elsewhere;
+        System.runAs(guestLikeUser) {
+            blocked = FormController.saveSubmission('{"a":"3"}', formRec.Id);
+            elsewhere = FormController.saveSubmission('{"a":"4"}', otherForm.Id);
+        }
+
+        System.assertEquals('This form is receiving a lot of submissions right now. Please try again in a minute.', blocked);
+        System.assertEquals(2, storedSubmissions(formRec.Id).size());
+        System.assertEquals('Success! Submission saved.', elsewhere, 'The cap is per form');
+    }
+
+    @IsTest
+    static void testProtectedFormAcceptsAVerifiedToken() {
+        connectSpamProtection();
+        User guestLikeUser = buildGuestLikeUser();
+        Form__c formRec = createProtectedForm();
+        Test.setMock(HttpCalloutMock.class, TurnstileHttpMock.accepted(String.valueOf(formRec.Id)));
+
+        Test.startTest();
+        String result;
+        System.runAs(guestLikeUser) {
+            result = FormController.saveSubmission('{"FirstName":"Ann","_captcha":"good-token"}', formRec.Id);
+        }
+        Test.stopTest();
+
+        System.assertEquals('Success! Submission saved.', result);
+        List<Form_Submission__c> rows = storedSubmissions(formRec.Id);
+        System.assertEquals(1, rows.size());
+        System.assertEquals('{"FirstName":"Ann"}', rows[0].Payload_JSON__c);
+        System.assert(TurnstileHttpMock.lastRequestBody.contains('response=good-token'));
+    }
+
+    @IsTest
+    static void testProtectedFormRejectsEverythingThatIsNotVerified() {
+        connectSpamProtection();
+        Form__c formRec = createProtectedForm();
+        Form__c otherForm = createProtectedForm();
+        String failed = 'The spam check failed. Please reload the page and try again.';
+
+        Test.startTest();
+        // No token at all: Cloudflare is never asked.
+        System.assertEquals(failed, FormController.saveSubmission('{"FirstName":"Bot"}', formRec.Id));
+        System.assertEquals(0, TurnstileHttpMock.callCount);
+
+        Test.setMock(HttpCalloutMock.class, TurnstileHttpMock.rejected('timeout-or-duplicate'));
+        System.assertEquals(failed, FormController.saveSubmission('{"FirstName":"Bot","_captcha":"replayed"}', formRec.Id));
+
+        // A token that Cloudflare issued for a different form.
+        Test.setMock(HttpCalloutMock.class, TurnstileHttpMock.accepted(String.valueOf(otherForm.Id)));
+        System.assertEquals(failed, FormController.saveSubmission('{"FirstName":"Bot","_captcha":"borrowed"}', formRec.Id));
+
+        // Cloudflare unreachable: fail closed.
+        Test.setMock(HttpCalloutMock.class, new TurnstileHttpMock());
+        System.assertEquals(failed, FormController.saveSubmission('{"FirstName":"Bot","_captcha":"t"}', formRec.Id));
+        Test.stopTest();
+
+        System.assertEquals(0, storedSubmissions(formRec.Id).size());
+    }
+
+    @IsTest
+    static void testProtectedFormRejectsEverythingWhenKeysWereRemoved() {
+        Form__c formRec = createProtectedForm();
+
+        String result = FormController.saveSubmission('{"FirstName":"Ann","_captcha":"good-token"}', formRec.Id);
+
+        System.assertEquals('The spam check failed. Please reload the page and try again.', result);
+        System.assertEquals(0, storedSubmissions(formRec.Id).size());
+    }
+
+    @IsTest
+    static void testProtectedFormRejectsUnreadablePayloads() {
+        connectSpamProtection();
+        Form__c formRec = createProtectedForm();
+
+        System.assertEquals('We could not save your submission. Please try again later.', FormController.saveSubmission('not json', formRec.Id));
+        System.assertEquals('We could not save your submission. Please try again later.', FormController.saveSubmission('null', formRec.Id));
+        System.assertEquals(0, storedSubmissions(formRec.Id).size());
+    }
+
+    @IsTest
+    static void testUnprotectedFormsKeepWorkingExactlyAsBefore() {
+        connectSpamProtection();
+        User guestLikeUser = buildGuestLikeUser();
+        Form__c formRec = createForm();
+
+        String result;
+        System.runAs(guestLikeUser) {
+            result = FormController.saveSubmission('{"FirstName":"Test","LastName":"User"}', formRec.Id);
+        }
+
+        System.assertEquals('Success! Submission saved.', result);
+        System.assertEquals('{"FirstName":"Test","LastName":"User"}', storedSubmissions(formRec.Id)[0].Payload_JSON__c);
+        System.assertEquals(0, TurnstileHttpMock.callCount);
+    }
+
+    @IsTest
+    static void testPageGetsTheSiteKeyOnlyForProtectedConnectedForms() {
+        Form__c plain = createForm();
+        Form__c protectedForm = createProtectedForm();
+
+        Test.setCurrentPage(new PageReference('/apex/PublicForm?id=' + protectedForm.Id));
+        ApexPages.currentPage().getParameters().put('id', protectedForm.Id);
+        System.assertEquals('', new FormController().captchaSiteKey, 'Not connected yet');
+        System.assertEquals(false, new FormController().showCaptcha);
+
+        connectSpamProtection();
+        FormController controller = new FormController();
+        System.assertEquals(SITE_KEY, controller.captchaSiteKey);
+        System.assertEquals(true, controller.showCaptcha, 'The widget script loads only when it will be used');
+        System.assert(controller.formPayloadJson.contains('"captchaSiteKey":"' + SITE_KEY + '"'));
+        System.assert(!controller.formPayloadJson.contains('Secret'));
+
+        ApexPages.currentPage().getParameters().put('id', plain.Id);
+        FormController plainController = new FormController();
+        System.assertEquals('', plainController.captchaSiteKey);
+        System.assertEquals(false, plainController.showCaptcha);
+        System.assert(plainController.formPayloadJson.contains('"captchaSiteKey":""'));
     }
 
     @IsTest

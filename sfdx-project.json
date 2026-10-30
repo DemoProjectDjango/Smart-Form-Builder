@@ -4,9 +4,9 @@
       "path": "main",
       "default": true,
       "package": "Smart Forms & Surveys",
-      "versionName": "Smart Forms & Surveys 0.6",
-      "versionNumber": "0.6.0.NEXT",
-      "versionDescription": "Lookup field settings (fixed record or selected choices), hidden-by-default lookups, hardened public submissions.",
+      "versionName": "Smart Forms & Surveys 0.7",
+      "versionNumber": "0.7.0.NEXT",
+      "versionDescription": "Spam protection: optional Cloudflare Turnstile check verified on the server, per-form rate limit and server-side trap field.",
       "ancestorVersion": "HIGHEST"
     }
   ],
@@ -18,6 +18,8 @@
     "Smart Forms & Surveys": "0HoOW00000000Uf0AI",
     "Smart Forms & Surveys@0.4.0-2": "04tOW00000JT15rYAD",
     "Smart Forms & Surveys@0.5.0-1": "04tOW00000Ld3JiYAJ",
-    "Smart Forms & Surveys@0.6.0-1": "04tOW00000Le0ZuYAJ"
+    "Smart Forms & Surveys@0.6.0-1": "04tOW00000Le0ZuYAJ",
+    "Smart Forms & Surveys@0.7.0-1": "04tOW00000LhWi5YAF",
+    "Smart Forms & Surveys@0.7.0-2": "04tOW00000LhRwwYAF"
   }
 }

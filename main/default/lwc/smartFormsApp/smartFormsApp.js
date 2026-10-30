@@ -1,18 +1,20 @@
 import { LightningElement, wire } from 'lwc';
 import getPublicFormBaseUrl from '@salesforce/apex/SmartFormsDataController.getPublicFormBaseUrl';
 import getErrorCount from '@salesforce/apex/SmartFormsDataController.getErrorCount';
+import getCaptchaStatus from '@salesforce/apex/CaptchaSettingsController.getStatus';
 
-const VIEWS = ['start', 'builder', 'forms', 'submissions', 'help', 'contact'];
+const VIEWS = ['start', 'builder', 'forms', 'submissions', 'protection', 'help', 'contact'];
 
 /**
- * Smart Forms & Surveys (native) app shell: left sidebar navigation and the five views
- * (Get started, Form Builder, Forms, Submissions, Help & FAQ).
+ * Smart Forms & Surveys (native) app shell: left sidebar navigation and its views
+ * (Get started, Form Builder, Forms, Submissions, Spam protection, Help & FAQ, Contact).
  */
 export default class SmartFormsApp extends LightningElement {
     productName = 'Smart Forms & Surveys (native)';
     view = 'start';
     baseUrl = '';
     errorCount = 0;
+    captchaConnected = false;
     builderRequest = null;
     startPreset = null;
     toasts = [];
@@ -27,6 +29,13 @@ export default class SmartFormsApp extends LightningElement {
 
     connectedCallback() {
         this.refreshErrorCount();
+        this.refreshCaptchaStatus();
+    }
+
+    /** Whether spam protection is connected decides if forms may switch on the spam check. */
+    async refreshCaptchaStatus() {
+        const status = await getCaptchaStatus().catch(() => null);
+        this.captchaConnected = !!(status && status.connected);
     }
 
     async refreshErrorCount() {
@@ -41,6 +50,7 @@ export default class SmartFormsApp extends LightningElement {
             { id: 'builder', label: 'Form Builder', icon: 'edit' },
             { id: 'forms', label: 'Forms', icon: 'logo' },
             { id: 'submissions', label: 'Submissions', icon: 'ok', badge: this.errorCount },
+            { id: 'protection', label: 'Spam protection', icon: 'shield' },
             { id: 'help', label: 'Help & FAQ', icon: 'info', separated: true },
             { id: 'contact', label: 'Contact', icon: 'mail' }
         ].map((t) => ({
@@ -67,6 +77,10 @@ export default class SmartFormsApp extends LightningElement {
 
     get isSubmissions() {
         return this.view === 'submissions';
+    }
+
+    get isProtection() {
+        return this.view === 'protection';
     }
 
     get isHelp() {
@@ -109,6 +123,14 @@ export default class SmartFormsApp extends LightningElement {
 
     handleGoSubmissions() {
         this.goTo('submissions');
+    }
+
+    handleGoProtection() {
+        this.goTo('protection');
+    }
+
+    handleProtectionChange(event) {
+        this.captchaConnected = !!(event.detail && event.detail.connected);
     }
 
     handleOpenBuilder(event) {

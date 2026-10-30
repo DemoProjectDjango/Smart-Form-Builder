@@ -62,8 +62,33 @@ public with sharing class FormEditorController {
             'dependencies'  => f.Field_Dependencies__c,
             'version'       => f.Version__c,
             'objectApiName' => f.Object_API_Name__c,
-            'fieldConfig'   => f.Field_Config__c
+            'fieldConfig'   => f.Field_Config__c,
+            'captchaEnabled' => readCaptchaFlag(formId)
         };
+    }
+
+    /**
+     * @description Whether a form requires a captcha, read for the running user. Returns false when
+     *              the user has no access to the field, so permission sets created before the field
+     *              existed keep working.
+     * @param formId Form__c Id.
+     * @return True only when the field is readable and checked.
+     */
+    public static Boolean readCaptchaFlag(Id formId) {
+        try {
+            List<Form__c> rows = [
+                SELECT Captcha_Enabled__c
+                FROM Form__c
+                WHERE Id = :formId
+                WITH USER_MODE
+                LIMIT 1
+            ];
+            return !rows.isEmpty() && rows[0].Captcha_Enabled__c == true;
+        } catch (QueryException e) {
+            return false; // no field access
+        } catch (SecurityException e) {
+            return false; // no object access
+        }
     }
 
     /**

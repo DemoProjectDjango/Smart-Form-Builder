@@ -231,8 +231,11 @@ export function buildDependencyJson(fields) {
     return JSON.stringify(deps);
 }
 
-/** Builds the public form markup. Every interpolated value is HTML-escaped. */
-export function buildFormHtml(formName, fields) {
+/**
+ * Builds the public form markup. Every interpolated value is HTML-escaped.
+ * options.captcha adds the empty container the Turnstile widget is rendered into.
+ */
+export function buildFormHtml(formName, fields, options = {}) {
     const visible = (fields || []).filter(isVisitorField);
     if (visible.length === 0) return '';
     const rows = visible.map((f) => {
@@ -287,15 +290,23 @@ export function buildFormHtml(formName, fields) {
     // No inline handlers: the server-side sanitizer strips them; submit is bound by the generated JS.
     // Honeypot: invisible to people, filled in by simple bots. The generated script drops such submissions.
     const honeypot = '<div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="hp_website" tabindex="-1" autocomplete="off" /></label></div>';
-    return `<div class="form-card"><h3>${escapeHtml(formName)}</h3><form class="form-body">${rows.join('')}${honeypot}<button class="btn-primary" type="submit">Submit</button></form></div>`.trim();
+    // The widget itself is rendered by the generated script; the site key comes from the server at view time.
+    const captchaBox = options && options.captcha ? '<div id="sf-captcha" class="captcha-box"></div>' : '';
+    return `<div class="form-card"><h3>${escapeHtml(formName)}</h3><form class="form-body">${rows.join('')}${honeypot}${captchaBox}<button class="btn-primary" type="submit">Submit</button></form></div>`.trim();
 }
 
 
 export function buildFormCss() {
-    return `/* Deep Blue Background */ body { margin: 0; padding: 0; min-height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); position: relative; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; align-items: center; justify-content: center; overflow: hidden; } body::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(99, 102, 241, 0.06) 0%, transparent 50%); pointer-events: none; animation: subtleFloat 25s ease-in-out infinite; } @keyframes subtleFloat { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(1.5%, 1.5%) rotate(0.5deg); } } .form-card { --bg: rgba(255, 255, 255, 0.04); --text: #f8fafc; --muted: #cbd5e1; --border: rgba(148, 163, 184, 0.12); --primary: #3b82f6; --primaryHover: #2563eb; --danger: #f87171; --inputBg: rgba(15, 23, 42, 0.4); --inputBorder: rgba(148, 163, 184, 0.15); --focusBorder: rgba(59, 130, 246, 0.4); position: relative; box-sizing: border-box; max-width: 420px; width: 100%; margin: 32px; padding: 48px 40px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05); font-family: inherit; color: var(--text); } .form-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 20px; padding: 1px; background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; } .form-card * { box-sizing: border-box; } .form-card h3 { margin: 0 0 36px; font-size: 1.625rem; font-weight: 600; color: #ffffff; text-align: center; letter-spacing: -0.5px; line-height: 1.2; } .form-body { margin: 0; } .field { margin-bottom: 24px; } .form-card label { display: block; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; } .req { color: var(--danger); margin-left: 3px; } .control, .form-card input, .form-card select, .form-card textarea { width: 100%; padding: 13px 16px; border: 1px solid var(--inputBorder); border-radius: 10px; background: var(--inputBg); color: var(--text); font-size: 0.9375rem; line-height: 1.5; transition: all 0.2s ease; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15); } .form-card input::placeholder, .form-card textarea::placeholder { color: rgba(203, 213, 225, 0.5); font-weight: 400; } .form-card input:hover, .form-card select:hover, .form-card textarea:hover { background: rgba(15, 23, 42, 0.5); border-color: rgba(148, 163, 184, 0.2); } .form-card input:focus, .form-card select:focus, .form-card textarea:focus { outline: none; border-color: var(--focusBorder); background: rgba(15, 23, 42, 0.6); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.15); } .form-card textarea { min-height: 110px; resize: vertical; } .form-card button { margin-top: 28px; width: 100%; padding: 14px 24px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #ffffff; border: none; border-radius: 10px; font-weight: 600; font-size: 0.9375rem; cursor: pointer; transition: all 0.2s ease; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2), 0 1px 3px rgba(0, 0, 0, 0.2); } .form-card button:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2); } .form-card button:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2); } .checkbox-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 0.875rem; } .checkbox-line input { width: auto; min-width: 16px; min-height: 16px; margin-right: 8px; accent-color: var(--primary); cursor: pointer; background-color: transparent; } .checkbox-line label { margin: 0; font-weight: 400; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; } @media (max-width: 520px) { body { padding: 16px; } .form-card { padding: 36px 28px; margin: 0; max-width: 100%; } .form-card h3 { font-size: 1.5rem; margin-bottom: 32px; } }`.trim();
+    return `/* Deep Blue Background */ body { margin: 0; padding: 0; min-height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); position: relative; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; align-items: center; justify-content: center; overflow: hidden; } body::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(99, 102, 241, 0.06) 0%, transparent 50%); pointer-events: none; animation: subtleFloat 25s ease-in-out infinite; } @keyframes subtleFloat { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(1.5%, 1.5%) rotate(0.5deg); } } .form-card { --bg: rgba(255, 255, 255, 0.04); --text: #f8fafc; --muted: #cbd5e1; --border: rgba(148, 163, 184, 0.12); --primary: #3b82f6; --primaryHover: #2563eb; --danger: #f87171; --inputBg: rgba(15, 23, 42, 0.4); --inputBorder: rgba(148, 163, 184, 0.15); --focusBorder: rgba(59, 130, 246, 0.4); position: relative; box-sizing: border-box; max-width: 420px; width: 100%; margin: 32px; padding: 48px 40px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05); font-family: inherit; color: var(--text); } .form-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 20px; padding: 1px; background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; } .form-card * { box-sizing: border-box; } .form-card h3 { margin: 0 0 36px; font-size: 1.625rem; font-weight: 600; color: #ffffff; text-align: center; letter-spacing: -0.5px; line-height: 1.2; } .form-body { margin: 0; } .field { margin-bottom: 24px; } .form-card label { display: block; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; } .req { color: var(--danger); margin-left: 3px; } .captcha-box { margin-top: 8px; display: flex; justify-content: center; color: var(--muted); font-size: 0.8125rem; text-align: center; } .control, .form-card input, .form-card select, .form-card textarea { width: 100%; padding: 13px 16px; border: 1px solid var(--inputBorder); border-radius: 10px; background: var(--inputBg); color: var(--text); font-size: 0.9375rem; line-height: 1.5; transition: all 0.2s ease; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15); } .form-card input::placeholder, .form-card textarea::placeholder { color: rgba(203, 213, 225, 0.5); font-weight: 400; } .form-card input:hover, .form-card select:hover, .form-card textarea:hover { background: rgba(15, 23, 42, 0.5); border-color: rgba(148, 163, 184, 0.2); } .form-card input:focus, .form-card select:focus, .form-card textarea:focus { outline: none; border-color: var(--focusBorder); background: rgba(15, 23, 42, 0.6); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.15); } .form-card textarea { min-height: 110px; resize: vertical; } .form-card button { margin-top: 28px; width: 100%; padding: 14px 24px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #ffffff; border: none; border-radius: 10px; font-weight: 600; font-size: 0.9375rem; cursor: pointer; transition: all 0.2s ease; letter-spacing: 0.02em; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2), 0 1px 3px rgba(0, 0, 0, 0.2); } .form-card button:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2); } .form-card button:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2); } .checkbox-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 0.875rem; } .checkbox-line input { width: auto; min-width: 16px; min-height: 16px; margin-right: 8px; accent-color: var(--primary); cursor: pointer; background-color: transparent; } .checkbox-line label { margin: 0; font-weight: 400; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; } @media (max-width: 520px) { body { padding: 16px; } .form-card { padding: 36px 28px; margin: 0; max-width: 100%; } .form-card h3 { font-size: 1.5rem; margin-bottom: 32px; } }`.trim();
 }
 
-export function buildFormJs(fields) {
+/**
+ * Builds the public form script. options.captcha makes the form render the Cloudflare Turnstile widget,
+ * send its token as "_captcha" with the submission (the server verifies it) and reset it afterwards,
+ * because a token can only be used once. The site key is read at view time from SF_FORM_PAYLOAD.
+ */
+export function buildFormJs(fields, options = {}) {
+    const captcha = !!(options && options.captcha);
     const hasDependencies = (fields || []).some(
         (f) =>
             f &&
@@ -421,6 +432,17 @@ export function buildFormJs(fields) {
         "   var keys=Object.keys(payload);",
         "   if(!keys||keys.length===0){ alert('No data to submit'); return; }",
         "",
+        ...(captcha
+            ? [
+                "   var capBox=document.getElementById('sf-captcha');",
+                "   if(capBox){",
+                "    var capToken=capBox.getAttribute('data-token')||'';",
+                "    if(!capToken){ alert('Please complete the spam check first.'); return; }",
+                "    payload._captcha=capToken;",
+                "   }",
+                ""
+            ]
+            : []),
         "   if(typeof Visualforce==='undefined'||!Visualforce.remoting||!Visualforce.remoting.Manager||typeof Visualforce.remoting.Manager.invokeAction!=='function'){",
         "    alert('Submission failed: Visualforce remoting is not available');",
         "    return;",
@@ -436,6 +458,14 @@ export function buildFormJs(fields) {
         "    formId,",
         "    function(result,event){",
         "     try{ console.log('remoting event:', event, 'result:', result); }catch(e){}",
+        ...(captcha
+            ? [
+                "     if(capBox){",
+                "      try{ if(window.turnstile&&window.__sfCaptchaId!==undefined){ window.turnstile.reset(window.__sfCaptchaId); } }catch(e){}",
+                "      capBox.removeAttribute('data-token');",
+                "     }"
+            ]
+            : []),
         "     if(event&&event.status){",
         "      alert(result||'Thank you! Submission received.');",
         "      for(var i2=0;i2<elements.length;i2++){",
@@ -476,5 +506,37 @@ export function buildFormJs(fields) {
         "})();"
     ].join("\n");
 
-    return dependencyJS ? (mainJS + "\n\n" + dependencyJS) : mainJS;
+    const captchaJS = captcha
+        ? [
+            "(function(){",
+            " var box=document.getElementById('sf-captcha');",
+            " if(!box) return;",
+            " var cfg=(typeof SF_FORM_PAYLOAD!=='undefined'&&SF_FORM_PAYLOAD)||{};",
+            " var siteKey=cfg.captchaSiteKey||'';",
+            " if(!siteKey){ box.textContent='The spam check is not available right now. Please try again later.'; return; }",
+            " var tries=0;",
+            " var timer=setInterval(function(){",
+            "  tries++;",
+            "  if(window.turnstile&&typeof window.turnstile.render==='function'){",
+            "   clearInterval(timer);",
+            "   try{",
+            "    window.__sfCaptchaId=window.turnstile.render(box,{",
+            "     sitekey:siteKey,",
+            "     action:'submit',",
+            "     cdata:String(cfg.id||''),",
+            "     callback:function(token){ box.setAttribute('data-token',token); },",
+            "     'expired-callback':function(){ box.removeAttribute('data-token'); },",
+            "     'error-callback':function(){ box.removeAttribute('data-token'); }",
+            "    });",
+            "   }catch(e){ box.textContent='The spam check could not be loaded. Please refresh the page.'; }",
+            "  } else if(tries>100){",
+            "   clearInterval(timer);",
+            "   box.textContent='The spam check could not be loaded. Please refresh the page.';",
+            "  }",
+            " },100);",
+            "})();"
+        ].join("\n")
+        : "";
+
+    return [mainJS, dependencyJS, captchaJS].filter(Boolean).join("\n\n");
 }

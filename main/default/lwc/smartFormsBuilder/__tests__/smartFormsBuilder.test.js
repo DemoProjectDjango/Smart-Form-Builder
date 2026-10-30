@@ -215,7 +215,7 @@ describe('c-smart-forms-builder', () => {
         label.value = 'How can we help?';
         label.dispatchEvent(new CustomEvent('input'));
 
-        const [, depSwitch] = el.shadowRoot.querySelectorAll('.switch input');
+        const [, depSwitch] = el.shadowRoot.querySelectorAll('[role="dialog"] .switch input');
         depSwitch.checked = true;
         depSwitch.dispatchEvent(new CustomEvent('change'));
         await flush();
@@ -259,7 +259,7 @@ describe('c-smart-forms-builder', () => {
         await flush();
         el.shadowRoot.querySelectorAll('.frow')[0].querySelector('[data-edit-btn]').click();
         await flush();
-        const [, depSwitch] = el.shadowRoot.querySelectorAll('.switch input');
+        const [, depSwitch] = el.shadowRoot.querySelectorAll('[role="dialog"] .switch input');
         depSwitch.checked = true;
         depSwitch.dispatchEvent(new CustomEvent('change'));
         await flush();

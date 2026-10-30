@@ -294,4 +294,78 @@ private class FormAuraControllerTest {
 
         System.assertEquals(config, stored);
     }
+
+    private static void connectSpamProtection() {
+        insert new Captcha_Settings__c(
+            Site_Key__c = '1x00000000000000000000AA',
+            Secret_Key__c = '1x0000000000000000000000000000000AA',
+            Connected__c = true
+        );
+    }
+
+    private static String requestJson(Id formId, String name, Boolean captchaEnabled) {
+        Map<String, Object> req = new Map<String, Object>{ 'name' => name, 'objectApiName' => 'Account', 'fieldConfigJson' => '{}' };
+        if (formId != null) { req.put('formId', formId); }
+        if (captchaEnabled != null) { req.put('captchaEnabled', captchaEnabled); }
+        return JSON.serialize(req);
+    }
+
+    @IsTest
+    static void testCaptchaCannotBeRequiredBeforeSpamProtectionIsConnected() {
+        User u = getFormBuilderUser();
+        String message;
+        System.runAs(u) {
+            try {
+                FormAuraController.saveFormTemplate(requestJson(null, 'Needs Captcha', true));
+            } catch (AuraHandledException e) {
+                message = e.getMessage();
+            }
+        }
+
+        System.assertNotEquals(null, message);
+        System.assert(message.contains('Connect spam protection'), message);
+        System.assertEquals(0, [SELECT COUNT() FROM Form__c WHERE Name = 'Needs Captcha']);
+    }
+
+    @IsTest
+    static void testCaptchaFlagIsSavedChangedAndLeftAloneWhenNotSent() {
+        User u = getFormBuilderUser();
+        connectSpamProtection();
+
+        Id formId;
+        Boolean created;
+        Boolean untouched;
+        Boolean turnedOff;
+        Boolean editorSees;
+        System.runAs(u) {
+            formId = FormAuraController.saveFormTemplate(requestJson(null, 'Protected', true));
+            created = [SELECT Captcha_Enabled__c FROM Form__c WHERE Id = :formId WITH USER_MODE].Captcha_Enabled__c;
+            editorSees = (Boolean) FormEditorController.getFormData(formId).get('captchaEnabled');
+
+            FormAuraController.saveFormTemplate(requestJson(formId, 'Protected v2', null));
+            untouched = [SELECT Captcha_Enabled__c FROM Form__c WHERE Id = :formId WITH USER_MODE].Captcha_Enabled__c;
+
+            FormAuraController.saveFormTemplate(requestJson(formId, 'Protected v3', false));
+            turnedOff = [SELECT Captcha_Enabled__c FROM Form__c WHERE Id = :formId WITH USER_MODE].Captcha_Enabled__c;
+        }
+
+        System.assertEquals(true, created);
+        System.assertEquals(true, editorSees);
+        System.assertEquals(true, untouched, 'Saving without the setting must not switch protection off');
+        System.assertEquals(false, turnedOff);
+    }
+
+    @IsTest
+    static void testFormsWithoutCaptchaNeverTouchTheField() {
+        User u = getFormBuilderUser();
+
+        Id formId;
+        Boolean stored;
+        System.runAs(u) {
+            formId = FormAuraController.saveFormTemplate(requestJson(null, 'Plain', false));
+            stored = [SELECT Captcha_Enabled__c FROM Form__c WHERE Id = :formId WITH USER_MODE].Captcha_Enabled__c;
+        }
+
+        System.assertEquals(false, stored);
+    }
 }

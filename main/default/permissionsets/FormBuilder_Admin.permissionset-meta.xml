@@ -44,6 +44,14 @@
         <apexClass>LookupRecordSearchController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>CaptchaSettingsController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Manage_Spam_Protection</name>
+    </customPermissions>
     <description>&quot;Access to build, edit, preview and manage forms + view submissions&quot;</description>
     <fieldPermissions>
         <editable>true</editable>
@@ -118,6 +126,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Form__c.Active__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Form__c.Captcha_Enabled__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
